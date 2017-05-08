@@ -1,0 +1,205 @@
+** 실습 주의사항
+
+1) IP 주소, 패스워드 등은 실습 환경에 맞게 바꿔 주셔야 합니다.
+
+2) 에러가 발생하는 경우, 설정 값들이 확인해 주세요.
+   오픈스택이 지속적으로 업데이트되기 때문에 업데이트 버전에 따라 조금씩 다를 수 있습니다.
+   이러한 부분은 구글과 같은 검색엔진을 사용하거나 오픈스택 공식 사이트를 참조해주세요.
+   (책의 7, 8장에 자세히 안내되어 있습니다)
+
+
+5장 CentOS에서 팩스택(packstack)으로 오픈스택 설치하기
+
+<네트워크 IP 설정하기>
+
+[root@centos ~]$ ifconfig
+
+[root@centos ~]$ ip addr
+
+[root@centos ~]# yum install ?y net-tools
+
+[root@centos ~]$ ifconfig
+
+[root@centos ~]# cd /etc/sysconfig/network-scripts/
+
+[root@centos network-scripts]# vi ifcfg-enp0s8
+TYPE=Ethernet
+BOOTPROTO=dhcp
+DEFROUTE=yes
+PEERDNS=yes
+PEERROUTES=yes
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_PEERDNS=yes
+IPV6_PEERROUTES=yes
+IPV6_FAILURE_FATAL=no
+IPV6_ADDR_GEN_MODE=stable-privacy
+NAME=enp0s8
+UUID=e6bb059d-1dd0-48e3-9016-3d7b0c3efd41
+DEVICE=enp0s8
+ONBOOT=yes
+--------------------------
+
+<팁>DHCP를 사용하지 않을 경우
+[root@centos network-scripts]# vi ifcfg-enp0s8
+TYPE=Ethernet
+BOOTPROTO=static
+DEFROUTE=yes
+PEERDNS=yes
+PEERROUTES=yes
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_PEERDNS=yes
+IPV6_PEERROUTES=yes
+IPV6_FAILURE_FATAL=no
+IPV6_ADDR_GEN_MODE=stable-privacy
+NAME=enp0s8
+UUID=e6bb059d-1dd0-48e3-9016-3d7b0c3efd41
+DEVICE=enp0s8
+ONBOOT=yes
+IPADDR=192.168.56.102
+NETMASK=255.255.255.0
+GATEWAY=192.168.56.1
+--------------------------
+
+
+[root@centos network-scripts]# service network restart
+
+[root@centos network-scripts]# ifconfig
+
+naleejangui-MacBook-Pro:~ naleejang$ ssh root@192.168.56.102
+
+
+
+<PackStack Mitaka 패키지와 PackStack 설치하기>
+
+[root@centos ~]# yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-mitaka/rdo-release-mitaka-6.noarch.rpm
+
+[root@centos ~]# yum update -y
+
+[root@centos ~]# yum install -y openstack-packstack
+
+[root@centos ~]# packstack -h | less
+
+[root@centos ~]# packstack --gen-answer-file ~/answers.txt
+
+[root@centos ~]# vi answers.txt
+
+# 기본으로 설정되는 패스워드입니다. 여기서는 openstack을 사용해 보겠습니다.
+CONFIG_DEFAULT_PASSWORD=openstack
+…
+# 여기서는 오브젝트 스토리지 서비스인 Swift는 설치하지 않겠습니다. 
+# 그러므로 값을 n으로 설정합니다.
+CONFIG_SWIFT_INSTALL=n
+…
+# 오케스트레이션 서비스는 설치할 예정입니다. 값을 y로 설정합니다.
+CONFIG_HEAT_INSTALL=y
+…
+
+# 컨트롤러 호스트 IP는 관리용 IP를 설정합니다. 
+# 따라서 VirtualBox에서 가상 서버 생성 시 설정했던 호스트 전용 네트워크인 
+# enp0s8의 IP를 입력합니다. 
+CONFIG_CONTROLLER_HOST=192.168.56.102
+
+# 컴퓨트 서비스를 설치할 노드의 IP를 나열합니다. 
+# 여기서는 설치할 노드가 한 대뿐이므로, 하나만 입력합니다.
+CONFIG_COMPUTE_HOSTS=192.168.56.102
+
+# 기존 네트워크 서비스인 nava network나 SDN이 가능한 네트워크 서비스인 
+# neutron 서비스를 설치할 노드의 IP를 입력합니다.
+CONFIG_NETWORK_HOSTS=192.168.56.102
+…
+# 이미지나 블록 스토리지 서비스와 같은 스토리지 서버 IP를 입력합니다.
+CONFIG_STORAGE_HOST=192.168.56.102
+…
+# 데이터 프로세싱 서비스인 Sahara 노드 IP를 입력합니다. 
+# 우리가 설치할 노드는 한 대뿐이므로 여기서는 같은 IP를 입력합니다.
+CONFIG_SAHARA_HOST=192.168.56.102
+…
+# 메시지 서비스를 할 노드의 IP를 입력합니다.
+CONFIG_AMQP_HOST=192.168.56.102
+…
+# Maria DB를 설치할 노드의 IP를 입력합니다. 이때 만일 CONFIG_MARIADB_INSTALL을 
+# y로 설정하지 않았다면 마리아 DB가 설치되어 있는 데이터베이스 서버 IP를 입력합니다.
+CONFIG_MARIADB_HOST=192.168.56.102
+
+# ‘Admin’ 사용자의 패스워드를 입력합니다. 원래는 랜덤한 값이 들어가 있으나, 
+# 사용하기 편리하게 하기 위해서 쉬운 패스워드로 변경해 줍니다. 
+# 여기서는 openstack이라고 변경했습니다.
+CONFIG_KEYSTONE_ADMIN_PW=openstack
+…
+# Demo 사용자의 패스워드 역시 사용하기 쉬운 패스워드로 입력합니다.
+CONFIG_KEYSTONE_DEMO_PW=openstack
+…
+# LDAP를 사용할 예정이라면 해당 URL을 입력해줍니다. 
+# 여기서는 모든 IP를 관리용 IP로 변경해주었습니다.
+CONFIG_KEYSTONE_LDAP_URL=ldap://192.168.56.102
+…
+# MongoDB를 설치할 노드 IP를 입력합니다.
+CONFIG_MONGODB_HOST=192.168.56.102
+
+# REDIS를 설치할 마스터 노드 IP를 입력합니다.
+CONFIG_REDIS_MASTER_HOST=192.168.56.102
+…
+# 외부 통신을 위한 L3 에이전트와 연결할 Open vSwitch의 브리지명을 입력합니다.
+CONFIG_NEUTRON_L3_EXT_BRIDGE=br-enp0s3
+…
+# ML2 드라이버 타입을 설정합니다. 다음에 나오는 타입 중 하나를 입력하면 됩니다. 
+# 여기서는 vlan을 사용하겠습니다. ['local', 'flat', 'vlan', 'gre', 'vxlan']
+CONFIG_NEUTRON_ML2_TYPE_DRIVERS=vlan
+…
+# 네트워크 타입을 설정합니다. 다음에 나오는 타입 중 하나를 입력하면 됩니다.
+# 여기서는 앞에서 설정한 ML2 드라이버 타입와 같은 타입을 설정합니다. 
+# ['local', 'vlan', 'gre', 'vxlan']
+CONFIG_NEUTRON_ML2_TENANT_NETWORK_TYPES=vlan
+…
+# 테넌트 네트워크로 제공할 물리 네트워크의 이름과 VLAN 태그 범위를 입력합니다.
+# <physical_network>:<vlan_min>:<vlan_max> 
+CONFIG_NEUTRON_ML2_VLAN_RANGES=physnet1:1:1000
+…
+# 물리 네트워크와 연결할 Open vSwitch 브리지명을 입력합니다. 
+# <physical_network>:<ovs_bridge>
+# Example: physnet1:br-eth1,physnet2:br-eth2,physnet3:br-eth3
+CONFIG_NEUTRON_OVS_BRIDGE_MAPPINGS=physnet1:br-enp0s3
+…
+# Open vSwitch의 브리지와 연결할 인터페이스명을 입력합니다. 
+# 만일 이때 매핑을 잘못 했다면, 다음 명령어를 이용해 수정할 수 있습니다.
+# packstack --allinone --os-neutron-ovs-bridge-mappings=ext-net:br-ex --os-neutron-ovs-bridge-interfaces
+# =br-ex:eth0
+CONFIG_NEUTRON_OVS_BRIDGE_IFACES=br-enp0s3:enp0s3
+
+# 오케스트레이션 클라우드 포메이션 설치 여부를 설정합니다.
+CONFIG_HEAT_CFN_INSTALL=y
+…
+# 유동 IP 범위를 입력합니다. 
+# 이때 입력하는 유동 IP 범위는 enp0s3 IP와 같은 대역의 IP 범위를 입력합니다.
+CONFIG_PROVISION_DEMO_FLOATRANGE=192.168.0.0/24
+--------------------------
+
+[root@centos ~]# packstack --answer-file ./answers.txt 
+
+
+<대시보드 접속하기>
+
+[root@centos ~]# cat keystonerc_admin 
+
+[root@centos ~]# cat keystonerc_demo 
+
+
+<Neutron 네트워크 확인하기>
+
+[root@centos ~]# ifconfig
+
+[root@centos ~]# ovs-vsctl show
+
+[root@centos ~]# ip netns show
+
+[root@centos ~]# ip netns exec qrouter-67fc3242-a642-4654-8778-2e38dd4bba81 ifconfig
+
+[root@centos ~]# ip netns exec qdhcp-69c204c4-b681-4147-8f7f-152a2ace70e6 ifconfig
+
+[root@centos ~]# systemctl status neutron*

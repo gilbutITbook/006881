@@ -1,0 +1,126 @@
+** 실습 주의사항
+
+1) IP 주소, 패스워드 등은 실습 환경에 맞게 바꿔 주셔야 합니다.
+
+2) 에러가 발생하는 경우, 설정 값들이 확인해 주세요.
+   오픈스택이 지속적으로 업데이트되기 때문에 업데이트 버전에 따라 조금씩 다를 수 있습니다.
+   이러한 부분은 구글과 같은 검색엔진을 사용하거나 오픈스택 공식 사이트를 참조해주세요.
+   (책의 7, 8장에 자세히 안내되어 있습니다)
+
+
+
+3장. 우분투에서 데브스택을 이용해 오픈스택 설치하기
+
+
+root@ubuntu:~# vi /etc/network/interfaces  
+
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s3
+iface enp0s3 inet static
+   address 192.168.56.103  
+   netmask 255.255.255.0
+   gateway 192.168.56.1  
+
+auto enp0s8
+iface enp0s8 inet static
+   address 192.168.0.22    
+   netmask 255.255.255.0
+   gateway 192.168.0.1     
+
+--------------------------
+
+root@ubuntu:~# systemctl restart networking
+
+root@ubuntu:~# ifconfig
+
+naleejangui-MacBook-Pro:~ naleejang$ ssh nalee@192.168.56.103
+
+root@ubuntu:~# useradd -U -G sudo -s /bin/bash -m stack  
+
+root@ ubuntu:~# echo "stack ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 
+
+root@ ubuntu:~# passwd stack  
+
+stack@ubuntu:~$ git clone https://git.openstack.org/openstack-dev/devstack 
+
+stack@ubuntu:~$ cd devstack 
+
+stack@ubuntu:~/devstack$ vi local.conf 
+[[local|localrc]]
+HOST_IP=192.168.56.103           
+SERVICE_HOST=192.168.56.103
+MYSQL_HOST=192.168.56.103
+RABBIT_HOST=192.168.56.103
+GLANCE_HOSTPORT=192.168.56.103:9292
+ADMIN_PASSWORD=openstack   
+DATABASE_PASSWORD=openstack
+RABBIT_PASSWORD=openstack
+SERVICE_PASSWORD=openstack
+
+# Nova-Network 비활성화
+disable_service n-net  
+
+# Neutron 활성화
+ENABLED_SERVICES+=,q-svc,q-dhcp,q-meta,q-agt,q-l3  
+
+
+## Neutron 네트워크 옵션
+Q_USE_SECGROUP=True  
+FLOATING_RANGE="192.168.0.0/24" 
+FIXED_RANGE="10.0.0.0/24"         
+Q_FLOATING_ALLOCATION_POOL=start=192.168.0.100,end=192.168.0.200 
+PUBLIC_NETWORK_GATEWAY="192.168.0.1"  
+PUBLIC_INTERFACE=enp0s8  
+
+# Open vSwitch 프로바이더 네트워킹 환경설정
+Q_USE_PROVIDERNET_FOR_PUBLIC=True 
+OVS_PHYSICAL_BRIDGE=br-enp0s8    
+PUBLIC_BRIDGE=br-enp0s8
+OVS_BRIDGE_MAPPINGS=public:br-enp0s8
+
+-------------------------
+
+stack@ubuntu:~/devstack$ ./stack.sh
+
+
+
+<Neutron 네트워크 구성하기>
+
+stack@ubuntu:~$ ifconfig
+
+stack@ubuntu:~$ sudo ovs-vsctl show
+
+stack@ubuntu:~$ sudo ip netns show
+
+stack@ubuntu:~$ sudo ip netns exec qrouter-2def024e-298f-40a2-ab4f-2c74052872ab ifconfig
+
+stack@ubuntu:~$ sudo ip netns exec qdhcp-b2203d5b-f33c-4509-b717-3c0769705013 ifconfig
+
+stack@ubuntu:~$ sudo ip netns show
+
+stack@ubuntu:~$ sudo ip netns exec qrouter-aa332b06-210c-4e9b-9961-657119f53742 ifconfig
+
+stack@ubuntu:~$ sudo ip netns exec qdhcp-dddd20f6-c9b4-4d5a-9497-96d9cf1cff44 ifconfig
+
+
+<첫 번째 인스턴스 생성하기>
+
+stack@ubuntu:~$ openstack user list
+
+stack@ubuntu:~$ openstack network list
+
+stack@ubuntu:~$ openstack help  network 
+
+stack@ubuntu:~$ openstack help  network create
+
+
+

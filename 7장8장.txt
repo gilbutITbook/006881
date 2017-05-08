@@ -1,0 +1,686 @@
+
+7장. 오픈스택 운영, 이 정도는 기본이지
+
+<프로젝트 및 사용자 생성하기>
+
+nalee@controller:~$ cat adminrc.sh 
+
+nalee@controller:~$ . adminrc.sh
+
+nalee@controller:~$ openstack project create --domain default --description "Developer 2 Team" developer2
+
+nalee@controller:~$ openstack user create --domain default --password-prompt janghj
+
+nalee@controller:~$ openstack role list
+
+nalee@controller:~$ openstack role add --project developer2 --user janghj Member
+
+nalee@controller:~$ cp adminrc.sh janghjrc.sh
+
+nalee@controller:~$ vi janghjrc.sh 
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=developer2
+export OS_USERNAME=janghj
+export OS_PASSWORD=janghjpass
+export OS_AUTH_URL=http://192.168.56.101:35357/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+--------------------------
+
+nalee@controller:~$ . janghjrc.sh
+
+nalee@controller:~$ openstack image list
+
+
+<프로젝트 네트워크 생성하기>
+
+root@controller:~# cat adminrc.sh 
+
+root@controller:~#. adminrc.sh
+
+root@controller:~# openstack network list
+
+root@controller:~# openstack network show public
+
+root@controller:~# ip netns show
+
+root@controller:~# openstack network list
+
+root@controller:~# ip netns show
+
+root@controller:~# ip netns exec qrouter-1f072e6b-99ce-4ebe-b535-734ea0befed3 ifconfig
+
+
+<이미지 올리기>
+
+root@controller:~# mkdir img
+
+root@controller:~# cd img/
+
+root@controller:~/img# wget https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img
+
+root@controller:~# cat naleejang.sh 
+
+root@controller:~# . naleejang.sh 
+
+root@controller:~# openstack image list
+
+root@controller:~# openstack image create "ubuntu 14.04 LTS" --file ./img/ trusty-server-cloudimg-amd64-disk1.img --disk-format qcow2 --container-format bare
+
+root@controller:~# openstack image list
+
+
+<인스턴스 생성하기>
+
+nalee@controller:~$ cat naleejang.sh 
+
+nalee@controller:~$ . naleejang.sh 
+
+openstack server list
+
+nalee@controller:~$ openstack server show webServer
+
+nalee@controller:~$ openstack server create --help
+
+
+<블록 스토리지 사용하기>
+
+nalee@controller:~$ sudo fdisk -l
+
+nalee@controller:~$ cat naleejang.sh 
+
+nalee@controller:~$ . naleejang.sh
+
+nalee@controller:~$ openstack volume list
+
+nalee@controller:~$ openstack volume show 7d99073e-a580-4397-b926-6aa3795d6089
+
+nalee@controller:~$ openstack volume --help
+
+nalee@controller:~$ openstack volume type list
+
+
+<오브젝트 스토리지 사용하기>
+
+nalee@controller:~$ cat naleejang.sh 
+
+nalee@controller:~$ . naleejang.sh 
+
+nalee@controller:~$ swift stat
+
+nalee@controller:~$ openstack container --help
+
+nalee@controller:~$ openstack object --help
+
+nalee@controller:~$ openstack container list
+
+nalee@controller:~$ openstack container show web-image-data
+
+nalee@controller:~$ openstack container create web-data
+
+nalee@controller:~$ openstack container list
+
+nalee@controller:~$ openstack object list web-image-data
+
+nalee@controller:~$ openstack object show web-image-data main-image/photo.jpg
+
+nalee@controller:~$ openstack object create web-data test.txt 
+
+nalee@controller:~$ openstack object list web-data
+
+nalee@controller:~$ openstack container save --help
+
+
+<오케스트레이션 서비스를 이용해 인스턴스 생성하기>
+
+nalee@controller:~$ cat naleejang.sh 
+
+nalee@controller:~$ openstack stack --help
+
+nalee@controller:~$ openstack stack create --parameter "key_name=developer1;image_id=cirros-0.3.4-x86_64-uec;instance_type=m1.nano" -t heat_template1.txt test-stack13
+
+nalee@controller:~$ openstack stack list
+
+nalee@controller:~$ openstack stack show test-stack1
+
+nalee@controller:~$ openstack stack event list test-stack
+
+nalee@controller:~$ openstack stack resource list test-stack
+
+nalee@controller:~$ openstack server list
+
+
+8장. 오픈스택 운영, 기본을 넘어서
+
+<트러블 슈팅>
+
+root@compute:~# cat adminrc 
+
+root@compute:~# . adminrc 
+
+root@controller:~# vi /etc/swift/proxy-server.conf 
+[DEFAULT]
+bind_port = 8080
+swift_dir = /etc/swift
+user = swift
+
+log_name = swift
+log_facility = LOG_LOCAL0
+log_level = DEBUG
+--------------------------------
+
+root@controller:~# vi /etc/rsyslog.d/50-default.conf
+…
+#LOG_LOCAL0 
+local0.*                     /var/log/swift/proxyserver.log
+--------------------------------
+
+root@controller:~# service swift-proxy restart
+
+root@controller:~# service rsyslog restart
+
+root@controller:~# cd /var/log/swift
+
+root@compute:/var/log/swift# tail -f proxyserver.log
+
+root@compute:/var/log# tail -f syslog 
+
+
+root@controller:~# vi /etc/swift/proxy-server.conf 
+
+root@compute:~# vi /etc/fstab 
+
+root@compute:~# vi /etc/rsyncd.conf
+
+root@compute:~# vi /etc/default/rsync 
+
+root@compute:~# vi /etc/swift/account-server.conf 
+
+root@compute:~# vi /etc/swift/container-server.conf 
+
+root@compute:~# vi /etc/swift/object-server.conf 
+
+root@controller:/etc/swift# swift-ring-builder account.builder
+
+root@controller:/etc/swift# swift-ring-builder container.builder
+
+root@controller:/etc/swift# swift-ring-builder object.builder
+
+root@controller:~# vi /etc/swift/proxy-server.conf
+…
+[filter:authtoken]
+paste.filter_factory = keystonemiddleware.auth_token:filter_factory
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_plugin = password
+project_domain_name = default
+user_domain_name = default
+-----------------------
+
+root@controller:~# service swift-proxy restart
+
+root@controller:~# service swift-proxy status
+
+root@controller:~# swift --debug stat
+
+root@controller:~# swift stat
+
+
+<성능을 향상시키기 위한 방법>
+
+root@ubuntu01:~# vi /etc/hosts
+
+root@ubuntu01:~# apt-get install software-properties-common
+
+root@ubuntu01:~# apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
+
+root@ubuntu01:~# add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://ftp.kaist.ac.kr/mariadb/repo/10.1/ubuntu xenial main'
+
+root@ubuntu01:~# apt-get update
+
+root@ubuntu01:~# apt-get install mariadb-server
+
+root@ubuntu01:~# apt-get install rsync
+
+root@ubuntu01:~# vi /etc/mysql/conf.d/galera.cnf
+[mysqld]
+query_cache_size=0
+binlog_format=ROW
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+query_cache_type=0
+bind-address=0.0.0.0
+
+# Galera Provider Configuration
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+# Galera Cluster Configuration
+wsrep_cluster_name="test_cluster"
+wsrep_cluster_address="gcomm://192.168.56.102,192.168.56.103,192.168.56.104"
+
+# Galera Synchronization Configuration
+wsrep_sst_method=rsync
+
+# Galera Node Configuration
+wsrep_node_address="192.168.56.102"
+wsrep_node_name="ubuntu01"
+---------------------------
+
+root@ubuntu02:~# vi /etc/mysql/conf.d/galera.cnf
+[mysqld]
+query_cache_size=0
+binlog_format=ROW
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+query_cache_type=0
+bind-address=0.0.0.0
+
+# Galera Provider Configuration
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+# Galera Cluster Configuration
+wsrep_cluster_name="test_cluster"
+wsrep_cluster_address="gcomm://192.168.56.102,192.168.56.103,192.168.56.104"
+
+# Galera Synchronization Configuration
+wsrep_sst_method=rsync
+
+# Galera Node Configuration
+wsrep_node_address="192.168.56.103"
+wsrep_node_name="ubuntu02"
+-------------------------
+
+root@ubuntu03:~# vi /etc/mysql/conf.d/galera.cnf
+[mysqld]
+query_cache_size=0
+binlog_format=ROW
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+query_cache_type=0
+bind-address=0.0.0.0
+
+# Galera Provider Configuration
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+# Galera Cluster Configuration
+wsrep_cluster_name="test_cluster"
+wsrep_cluster_address="gcomm://192.168.56.102,192.168.56.103,192.168.56.104"
+
+# Galera Synchronization Configuration
+wsrep_sst_method=rsync
+
+# Galera Node Configuration
+wsrep_node_address="192.168.56.104"
+wsrep_node_name="ubuntu03"
+--------------------------
+
+root@ubuntu01:~# ufw status
+
+root@ubuntu01:~# ufw enable
+
+root@ubuntu01:~# ufw status
+
+root@ubuntu01:~# ufw allow 3306,4567,4568,4444/tcp
+
+root@ubuntu01:~# ufw allow 4567/udp
+
+root@ubuntu01:~# systemctl stop mysql
+
+root@ubuntu01:~# systemctl status mysql
+
+root@ubuntu01:~# galera_new_cluster
+
+root@ubuntu01:~# mysql -u root -p -e "SHOW STATUS LIKE 'wsrep_cluster_size'"
+
+root@ubuntu02:~# systemctl start mysql
+
+root@ubuntu02:~# mysql -u root -p -e "SHOW STATUS LIKE 'wsrep_cluster_size'"
+
+root@ubuntu03:~# systemctl start mysql 
+
+root@ubuntu03:~# mysql -u root -p -e "SHOW STATUS LIKE 'wsrep_cluster_size'"
+
+root@ubuntu01:~# cat /etc/mysql/debian.cnf
+
+root@ubuntu02:~# vi /etc/mysql/debian.cnf 
+password = UDSAQXXTE66DkJUa
+
+root@ubuntu03:~# vi /etc/mysql/debian.cnf 
+password = UDSAQXXTE66DkJUa
+
+
+root@ubuntu01:~# mysql -u root -popenstack -e 'CREATE DATABASE playground;'
+
+root@ubuntu01:~# mysql -u root -popenstack -e 'CREATE TABLE playground.equipment ( id INT NOT NULL AUTO_INCREMENT, type VARCHAR(50), quant INT, color VARCHAR(25), PRIMARY KEY(id));'
+
+root@ubuntu01:~# mysql -u root -popenstack -e 'INSERT INTO playground.equipment (type, quant, color) VALUES ("slide", 2, "blue");'
+
+root@ubuntu02:~# mysql -u root -p -e 'SELECT * FROM playground.equipment;'
+
+root@ubuntu02:~# mysql -u root -p -e 'INSERT INTO playground.equipment (type, quant, color) VALUES ("swing", 10, "yellow");'
+
+root@ubuntu03:~# mysql -u root -p -e 'SELECT * FROM playground.equipment;'
+
+root@ubuntu03:~# mysql -u root -p -e 'INSERT INTO playground.equipment (type, quant, color) VALUES ("seesaw", 3, "green");'
+
+root@ubuntu01:~# mysql -u root -p -e 'SELECT * FROM playground.equipment;'
+
+root@ubuntu01:~# apt-get install haproxy
+
+root@ubuntu02:~# apt-get install haproxy
+
+root@ubuntu01:~# mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.org
+
+root@ubuntu01:~# vi /etc/haproxy/haproxy.cfg
+global
+  log      127.0.0.1 local2 info
+  chroot   /var/lib/haproxy
+  pidfile  /var/run/haproxy.pid
+  maxconn  4000
+  group    haproxy
+  user     haproxy
+  daemon
+
+defaults
+  log  global
+  maxconn  4000
+  option  redispatch
+  retries  3
+  timeout  http-request 10s
+  timeout  queue 1m
+  timeout  connect 10s
+  timeout  client 1m
+  timeout  server 1m
+  timeout  check 10s
+
+listen galera_cluster
+  bind 127.0.0.1:33006
+  balance  source
+  option  mysql-check
+  server ubuntu01 192.168.56.102:3306 check port 9200 inter 2000 rise 2 fall 5
+  server ubuntu02 192.168.56.103:3306 backup check port 9200 inter 2000 rise 2 fall 5
+  server ubuntu03 192.168.56.104:3306 backup check port 9200 inter 2000 rise 2 fall 5
+------------------------------
+
+root@ubuntu01:~# systemctl restart haproxy
+
+root@ubuntu01:~# systemctl status haproxy
+
+root@ubuntu01:~# netstat -ntpa | grep LISTEN
+
+root@ubuntu01:~# mysql -h localhost -P 33006 -u root -popenstack
+MariaDB [(none)]> show databases;
+MariaDB [(none)]> use playground;
+MariaDB [playground]> show tables;
+MariaDB [playground]> INSERT INTO equipment (type, quant, color) VALUES ("apple", 5, "red");
+MariaDB [playground]> quit;
+
+root@ubuntu02:~# mysql -u root -popenstack -e 'select * from playground.equipment;'
+
+root@ubuntu01:~# apt-get install keepalived
+
+root@ubuntu01:~# echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+
+root@ubuntu01:~# echo "net.ipv4.ip_nonlocal_bind = 1" >> /etc/sysctl.conf
+
+root@ubuntu01:~# echo "net.ipv4.conf.default.rp_filter = 2" >> /etc/sysctl.conf
+
+root@ubuntu01:~# echo "net.ipv4.conf.default.accept_source_route = 0" >> /etc/sysctl.conf
+
+root@ubuntu01:~# sysctl -p
+
+root@ubuntu01:~# vi /etc/keepalived/keepalived.conf
+global_defs {
+   notification_email {
+     nalee999@gmail.com
+   }
+   notification_email_from ubuntu01@gmail.com
+   smtp_server localhost
+   smtp_connect_timeout 30
+}
+
+vrrp_instance VRRP1 {
+    state MASTER
+#   가상 IP가 매핑될 네트워크 인터페이스를 명시합니다.
+    interface enp0s8
+    virtual_router_id 41
+#   마스터 서버값을 백업 서버의 priority 값보다 높게 설정해야 합니다.
+    priority 102
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 1066
+    }
+    virtual_ipaddress {
+        192.168.56.200 dev enp0s8
+    }
+}
+------------------------------------
+
+root@ubuntu02:~# vi /etc/keepalived/keepalived.conf
+global_defs {
+   notification_email {
+     nalee999@gmail.com
+   }
+   notification_email_from ubuntu02@gmail.com
+   smtp_server localhost
+   smtp_connect_timeout 30
+}
+
+vrrp_instance VRRP1 {
+    state BACKUP
+#   가상 IP가 매핑될 네트워크 인터페이스를 명시합니다.
+    interface enp0s8
+    virtual_router_id 41
+#   마스터 서버보다 백업 서버의 priority 값을 낮게 설정해야 합니다.
+    priority 100
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 1066
+    }
+    virtual_ipaddress {
+        192.168.56.200 dev enp0s8
+    }
+}
+-----------------------------------
+
+root@ubuntu01:~# vi /etc/haproxy/haproxy.cfg
+global
+  log      127.0.0.1 local2 info
+  chroot   /var/lib/haproxy
+  pidfile  /var/run/haproxy.pid
+  maxconn  4000
+  group    haproxy
+  user     haproxy
+  daemon
+
+defaults
+  log  global
+  maxconn  4000
+  option  redispatch
+  retries  3
+  timeout  http-request 10s
+  timeout  queue 1m
+  timeout  connect 10s
+  timeout  client 1m
+  timeout  server 1m
+  timeout  check 10s
+
+listen galera_cluster
+  bind 192.168.56.200:33006
+----------------------------------
+
+root@ubuntu01:~# systemctl restart keepalived
+
+root@ubuntu01:~# systemctl status keepalived
+
+root@ubuntu01:~# systemctl restart haproxy
+
+root@ubuntu01:~# systemctl status haproxy
+
+root@ubuntu01:~# ip addr show enp0s8
+
+root@ubuntu01:~# netstat -ntpa | grep LISTEN
+
+[root@controller ~]# vi /etc/keystone/keystone.conf
+…
+[cors]
+
+#
+# From oslo.middleware
+#
+
+# 해당 리소스를 공유할 도메인을 설정합니다. *로 설정하면 어디서든 해당 리소스에 접근할 수 있습니다.
+allowed_origin = *
+
+# 사용자 인증을 포함해 요청할 수 있습니다. 기본값은 true입니다.
+allow_credentials = true
+
+# API를 노출하기위한 안전한 헤더값을 설정합니다. 기본값은 HTTP Simple 헤더입니다.
+expose_headers = X-Auth-Token,X-Openstack-Request-Id,X-Subject-Token
+
+# CORS의 최대 캐시값을 설정합니다.
+max_age = 3600
+
+# 실제로 허용해 줄 Method를 설정합니다.
+allow_methods = GET,PUT,POST,DELETE,PATCH
+
+# 요청을 허락해줄 헤더의 필더명을 설정합니다.
+allow_headers = X-Auth-Token,X-Openstack-Request-Id,X-Subject-Token,X-Project-Id,X-Project-Name,X-Project-Domain-Id,X-Project-Domain-Name,X-Domain-Id,X-Domain-Name,content-type
+---------------------------------------
+
+[root@controller ~]# systemctl restart apache2
+
+[root@controller ~]# systemctl status apache2
+
+[root@controller ~]# curl -i \
+   -H "Content-Type: application/json" \
+   -d '
+ { "auth": {
+     "identity": {
+       "methods": ["password"],
+       "password": {
+         "user": {
+           "name": "admin",
+           "domain": { "name": "default" },
+           "password": "openstack"
+         }
+       }
+     }
+   }
+ }' \
+   http://192.168.56.101:35357/v3/auth/tokens
+------------------------------------
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>REST API TEST</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script>
+        function goRestTest()
+        {
+            var apiName = document.getElementById("apiName").value
+            var apiUrl  = document.getElementById("apiUrl").value
+            var apiMethod = document.getElementById("apiMethod").value
+            var parameter = document.getElementById("apiParameter").value
+
+            $.ajax({
+                 type:apiMethod,
+                 url:apiUrl,
+                 contentType: "application/json",
+                 data:parameter,
+                 success: function(result){
+
+                    document.getElementById("response").value = JSON.stringify(result);
+
+                 },
+                 error: function(request,status,error) {
+                    document.getElementById("response").value = "code:"+request.status+"\n"+"message:"+request.responseText+"\n"+"error:"+error;
+                 }
+            });
+        }
+    </script>
+</head>
+<body>
+<div>
+    <div style="margin:10;width:800px">
+        <h1>Rest API Test</h1>
+        <form name="form1">
+            <table>
+                <tr>
+                    <td width="400">
+                        <div class="form-group">
+                            <label class="control-label">API Name</label>
+                            <input type="text" class="form-control" id="apiName" placeholder="API Name">
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">API URL</label>
+                            <input type="text" class="form-control" id="apiUrl" placeholder="API URL">
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">API Method</label>
+                            <select class="form-control" id="apiMethod">
+                                <option value="POST">POST</option>
+                                <option value="GET">GET</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">Parameters</label>
+                            <textarea class="form-control" id="apiParameter" rows="6"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-default" onclick="goRestTest()">Submit</button>
+                        <button type="cancel" class="btn btn-default">Cancel</button>
+                    </td>
+                    <td width="390">
+                        <div class="form-group">
+                            <label class="control-label" style="margin:10">Response</label>
+                            <textarea class="form-control" style="margin:10" id="response" rows="16"></textarea>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
+<컨트리뷰터에 도전하기>
+
+naleejangui-MacBook-Pro:~ naleejang$ git --help
+
+naleejangui-MacBook-Pro:~ naleejang$ sudo pip install git-review ?U wheel
+
+naleejangui-MacBook-Pro:~ naleejang$ git config --global user.name "naleejang"
+
+naleejangui-MacBook-Pro:~ naleejang$ git config --global user.email "nalee999@gmail.com"
+
+naleejangui-MacBook-Pro:~ naleejang$ git config --global gitreview.username "naleejang"
+
+naleejangui-MacBook-Pro:~ naleejang$ ssh-keygen -t rsa -b 4096 -C "nalee999@gmail.com"
+
+Enter file in which to save the key (/Users/naleejang/.ssh/id_rsa): /Users/naleejang/.ssh/openstack_rsa
+
+naleejangui-MacBook-Pro:~ naleejang$ cat .ssh/openstack_rsa.pub 
+
+naleejangui-MacBook-Pro:~ naleejang$ mkdir openstack
+
+naleejangui-MacBook-Pro:~ naleejang$ cd openstack/
+
+naleejangui-MacBook-Pro:openstack naleejang$ git clone ssh://naleejang@review.openstack.org:29418/openstack/swift
+
+
+
+

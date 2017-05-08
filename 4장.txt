@@ -1,0 +1,2916 @@
+** 실습 주의사항
+
+1) IP 주소, 패스워드 등은 실습 환경에 맞게 바꿔 주셔야 합니다.
+
+2) 에러가 발생하는 경우, 설정 값들이 확인해 주세요.
+   오픈스택이 지속적으로 업데이트되기 때문에 업데이트 버전에 따라 조금씩 다를 수 있습니다.
+   이러한 부분은 구글과 같은 검색엔진을 사용하거나 오픈스택 공식 사이트를 참조해주세요.
+   (책의 7, 8장에 자세히 안내되어 있습니다)
+
+3) 실습할 때 controller 노드인지, compute 노드인지 잘 확인합니다.
+
+
+
+
+4 장. 우분투에서 매뉴얼을 이용해 서비스가 가능한 오픈스택 설치하기
+
+<우분투 설치>
+
+<네트워크 설정>
+
+root@controller:/home/nalee# cd /etc/network
+
+root@controller:/etc/network# vi interfaces
+auto eth0
+iface eth0 inet static
+    address 192.168.56.101
+     netmask 255.255.255.0
+     gateway 192.168.56.1
+     dns-nameservers 8.8.8.8
+
+auto eth1
+iface eth1 inet manual
+     up ip link set dev $IFACE up
+     down ip link set dev $IFACE down 
+
+
+
+
+<VM의 경우>
+auto enp0s3
+iface enp0s3 inet static
+    address 192.168.56.101
+     netmask 255.255.255.0  <ping이 안 되면 이 줄 삭제>
+     gateway 192.168.56.1   <ping이 안 되면 이 줄 삭제>
+
+auto enp0s8
+iface enp0s8 inet manual
+     up ip link set dev $IFACE up
+     down ip link set dev $IFACE down 
+
+auto enp0s9
+iface enp0s9 inet dhcp
+
+-------------------------
+
+root@controller:/etc/network# service networking restart
+
+root@controller:/etc/network# ifconfig
+
+root@controller:~# vi /etc/hosts
+127.0.0.1	localhost
+127.0.1.1	controller
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+192.168.56.101  controller
+192.168.56.102  compute 
+
+------------------------
+
+root@compute:/home/nalee# cd /etc/network
+
+root@compute:/etc/network# vi interfaces
+auto eth0
+iface eth0 inet static
+    address 192.168.56.102
+     netmask 255.255.255.0
+     gateway 192.168.56.1
+     dns-nameservers 8.8.8.8
+
+auto eth1
+iface eth1 inet manual
+     up ip link set dev $IFACE up
+     down ip link set dev $IFACE down 
+
+
+
+<VM의 경우>
+auto enp0s3
+iface enp0s3 inet static
+    address 192.168.56.102
+     netmask 255.255.255.0  <ping이 안 되면 이 줄 삭제>
+     gateway 192.168.56.1   <ping이 안 되면 이 줄 삭제>
+
+auto enp0s8
+iface enp0s8 inet manual
+     up ip link set dev $IFACE up
+     down ip link set dev $IFACE down 
+
+auto enp0s9
+iface enp0s9 inet dhcp
+
+--------------------------
+
+root@compute:/etc/network# service networking restart
+
+root@compute:/etc/network# ifconfig
+
+root@compute:~# vi /etc/hosts
+127.0.0.1	localhost
+127.0.1.1	compute
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+192.168.56.101 controller
+192.168.56.102 compute
+
+-------------------------
+
+root@compute:~# ping controller
+
+<VM의 경우>
+root@compute:~# ping controller
+root@controller:~# ping 8.8.8.8
+root@compute:~# ping 8.8.8.8
+
+
+
+<네트워크 타임 서비스>
+
+root@controller:~# apt-get install chrony
+
+root@controller:~# vi /etc/chrony/chrony.conf
+…
+#pool 2.debian.pool.ntp.org offline iburst
+server 0.pool.ntp.org iburst
+server 1.pool.ntp.org iburst
+server 2.pool.ntp.org iburst
+server 3.pool.ntp.org iburst
+
+allow 0/0
+…
+
+-------------------------
+
+root@controller:~# service chrony restart
+
+root@controller:~# chronyc sources -v
+
+root@compute:~# apt-get install chrony
+
+root@compute:~# vi /etc/chrony/chrony.conf
+…
+#pool 2.debian.pool.ntp.org offline iburst
+server 192.168.56.101 iburst
+…
+
+-------------------------
+
+root@compute:~# service chrony restart
+
+root@compute:~# chronyc sources -v
+
+
+
+<오픈스택 패키지>
+
+root@controller:~# apt-get install software-properties-common
+
+root@controller:~# add-apt-repository cloud-archive:mitaka
+
+root@compute:~# apt-get install software-properties-common
+
+root@compute:~# add-apt-repository cloud-archive:mitaka
+
+root@controller:~# apt-get update && apt-get dist-upgrade
+
+root@controller:~# reboot
+
+root@controller:~# apt-get install python-openstackclient
+
+root@compute:~# apt-get update && apt-get dist-upgrade
+
+root@compute:~# reboot
+
+root@compute:~# apt-get install python-openstackclient
+
+
+
+<SQL 데이터베이스>
+
+root@controller:~# apt-get install mariadb-server python-pymysql
+
+root@controller:~# cd /etc/mysql/conf.d/
+
+root@controller:/etc/mysql/conf.d# vi openstack.cnf
+[mysqld]
+bind-address = 192.168.56.101
+
+default-storage-engine = innodb
+innodb_file_per_table
+collation-server = utf8_general_ci
+character-set-server = utf8 
+
+-------------------------
+
+root@controller:/etc/mysql/conf.d# service mysql restart
+
+root@controller:~# mysql_secure_installation
+
+<NoSQL 데이터베이스>
+
+root@controller:~# apt-get install mongodb-server mongodb-clients python-pymongo
+
+root@controller:~# vi /etc/mongodb.conf
+# mongodb.conf
+
+# Where to store the data.
+dbpath=/var/lib/mongodb
+
+#where to log
+logpath=/var/log/mongodb/mongodb.log
+
+logappend=true
+
+bind_ip = 192.168.56.101
+#port = 27017
+
+smallfiles = true
+...
+
+-------------------------
+
+root@controller:~# service mongodb stop
+
+root@controller:~# cd /var/lib/mongodb/journal/
+
+root@controller:/var/lib/mongodb/journal# ls -al
+
+root@controller:/var/lib/mongodb/journal# service mongodb start
+
+root@controller:/var/lib/mongodb/journal# ls -al
+
+root@controller:/var/lib/mongodb/journal# service mongodb status
+
+root@controller:~# apt-get install rabbitmq-server
+
+root@controller:~# rabbitmqctl add_user openstack rabbitpass
+
+root@controller:~# rabbitmqctl set_permissions openstack ".*" ".*" ".*"
+
+
+
+<팁> RabbitMQ를 관리할 수 있는 대시보드를 설정해 봅시다
+
+root@controller:~# cd /usr/lib/rabbitmq/lib/rabbitmq_server-3.5.7/sbin
+
+root@controller:~# rabbitmq-plugins enable rabbitmq_management
+
+root@controller:~# service rabbitmq-server stop
+
+root@controller:~# service rabbitmq-server start
+
+root@controller:~# service rabbitmq-server status
+
+root@controller:~# rabbitmqctl add_user test test
+
+root@controller:~# rabbitmqctl set_user_tags test administrator
+
+root@controller:~# rabbitmqctl set_permissions -p / test ".*" ".*" ".*"
+</팁>
+
+
+
+<캐시>
+
+root@controller:~# apt-get install memcached python-memcache
+
+root@controller:~# vi /etc/memcached.conf
+...
+-l 192.168.56.101
+
+-------------------------
+
+root@controller:~# service memcached restart
+
+root@controller:~# service memcached status
+
+
+
+<인증 서비스>
+
+<설치 및 환경 설정>
+root@controller:~# mysql -u root -p
+MariaDB [(none)]> CREATE DATABASE keystone;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY 'keystonedbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'%' IDENTIFIED BY 'keystonedbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# echo "manual" > /etc/init/keystone.override
+
+root@controller:~# apt-get install keystone apache2 libapache2-mod-wsgi
+
+root@controller:~# vi /etc/keystone/keystone.conf
+[DEFAULT]
+
+#
+# From keystone
+#
+
+admin_token = openstackkeystoneadmintoken
+…
+[database]
+
+#
+# From oslo.db
+#
+
+connection = mysql+pymysql://keystone:keystonedbpass@192.168.56.101/keystone
+…
+[token]
+
+...
+provider = fernet
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "keystone-manage db_sync" keystone
+
+root@controller:~# systemctl status mysql
+
+root@controller:~# netstat -ntpa | grep LISTEN
+
+root@controller:~# cd /etc/mysql/mariadb.conf.d
+
+root@controller:/etc/mysql/mariadb.conf.d# cat 50-server.cnf 
+
+root@controller:/etc/mysql/mariadb.conf.d# vi 50-server.cnf 
+…
+# Instead of skip-networking the default is now to listen only on
+# localhost which is more compatible and is not less secure.
+#bind-address		= 127.0.0.1
+
+-------------------------
+
+root@controller:/etc/mysql/mariadb.conf.d# service mysql restart 
+
+root@controller:/etc/mysql/mariadb.conf.d# cd
+
+root@controller:~# su -s /bin/sh -c "keystone-manage db_sync" keystone
+
+root@controller:/etc/mysql/conf.d # mysql -u root ?popenstack
+MariaDB [(none)]> status;
+MariaDB [(none)]> exit;
+
+root@controller:/etc/mysql/mariadb.conf.d# cat 50-client.cnf 
+
+root@controller:/etc/mysql/mariadb.conf.d# vi 50-client.cnf 
+#
+# This group is read by the client library
+# Use it for options that affect all clients, but not the server
+#
+
+[client]
+# Default is Latin1, if you need UTF-8 set this (also in server section)
+default-character-set = utf8
+
+-------------------------
+
+root@controller:/etc/mysql/mariadb.conf.d# cat 50-mysql-clients.cnf 
+
+root@controller:/etc/mysql/mariadb.conf.d# vi 50-mysql-clients.cnf 
+#
+# These groups are read by MariaDB command-line tools
+# Use it for options that affect only one utility
+#
+
+[mysql]
+# Default is Latin1, if you need UTF-8 set this (also in server section)
+default-character-set = utf8
+
+-------------------------
+
+root@controller:/etc/mysql/mariadb.conf.d# cat 50-server.cnf 
+
+root@controller:/etc/mysql/mariadb.conf.d# vi 50-server.cnf 
+…
+#
+# * Character sets
+#
+# MySQL/MariaDB default is Latin1, but in Debian we rather default to the full
+# utf8 4-byte character set. See also client.cnf
+#
+character-set-server  = utf8
+collation-server      = utf8_general_ci
+
+-------------------------
+
+root@controller:/etc/mysql/mariadb.conf.d# cd 
+
+root@controller:~# service mysql restart
+
+root@controller:~# mysql -u root -popenstack 
+MariaDB [(none)]> status;
+MariaDB [(none)]> exit;
+
+root@controller:~# cd /etc/mysql/mariadb.conf.d
+
+root@controller:/etc/mysql/mariadb.conf.d# vi 50-server.cnf 
+#
+# * Character sets
+#
+# MySQL/MariaDB default is Latin1, but in Debian we rather default to the full
+# utf8 4-byte character set. See also client.cnf
+#
+character-set-server  = latin1
+collation-server      = latin1_general_ci
+
+-------------------------
+
+root@controller:/etc/mysql/mariadb.conf.d# service mysql restart
+
+root@controller:/etc/mysql/mariadb.conf.d# cd
+
+root@controller:~# su -s /bin/sh -c "keystone-manage db_sync" keystone
+
+root@controller:~# cd /etc/mysql/mariadb.conf.d
+
+root@controller:/etc/mysql/mariadb.conf.d# mysql -u root -popenstack
+MariaDB [(none)]> use keystone;
+MariaDB [keystone]> status;
+MariaDB [keystone]> exit;
+
+root@controller:/etc/mysql/mariadb.conf.d# cd
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> drop database keystone;
+MariaDB [(none)]> CREATE DATABASE keystone;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY 'keystonedbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'%' IDENTIFIED BY 'keystonedbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# su -s /bin/sh -c "keystone-manage db_sync" keystone
+
+root@controller:~# keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+
+root@controller:~# vi /etc/apache2/apache2.conf
+# Do NOT add a slash at the end of the directory path.
+#
+#ServerRoot "/etc/apache2"
+
+ServerName 192.168.56.101
+
+-------------------------
+
+root@controller:~# vi /etc/apache2/sites-available/wsgi-keystone.conf
+Listen 5000
+Listen 35357
+
+<VirtualHost *:5000>
+    WSGIDaemonProcess keystone-public processes=5 threads=1 user=keystone group=keystone display-name=%{GROUP}
+    WSGIProcessGroup keystone-public
+    WSGIScriptAlias / /usr/bin/keystone-wsgi-public
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    ErrorLogFormat "%{cu}t %M"
+    ErrorLog /var/log/apache2/keystone.log
+    CustomLog /var/log/apache2/keystone_access.log combined
+
+    <Directory /usr/bin>
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+<VirtualHost *:35357>
+    WSGIDaemonProcess keystone-admin processes=5 threads=1 user=keystone group=keystone display-name=%{GROUP}
+    WSGIProcessGroup keystone-admin
+    WSGIScriptAlias / /usr/bin/keystone-wsgi-admin
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    ErrorLogFormat "%{cu}t %M"
+    ErrorLog /var/log/apache2/keystone.log
+    CustomLog /var/log/apache2/keystone_access.log combined
+
+    <Directory /usr/bin>
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+-------------------------
+
+root@controller:~# ln -s /etc/apache2/sites-available/wsgi-keystone.conf /etc/apache2/sites-enabled
+
+root@controller:~# service apache2 restart
+
+root@controller:~# service apache2 status
+
+root@controller:~# netstat -ntpa | grep LISTEN
+
+root@controller:~# service keystone stop
+
+root@controller:~# service apache2 restart
+
+root@controller:~# service apache2 status
+
+
+
+<서비스 및 앤드포인트 생성>
+
+root@controller:~# export OS_TOKEN=openstackkeystoneadmintoken
+
+root@controller:~# export OS_URL=http://192.168.56.101:35357/v3
+
+root@controller:~# export OS_IDENTITY_API_VERSION=3
+
+root@controller:~# openstack user list
+
+root@controller:~# openstack service create --name keystone --description "OpenStack Identity" identity
+
+root@controller:~# openstack endpoint create --region RegionOne identity public http://192.168.56.101:5000/v3
+
+root@controller:~# openstack endpoint create --region RegionOne identity internal http://192.168.56.101:5000/v3
+
+root@controller:~# openstack endpoint create --region RegionOne identity admin http://192.168.56.101:35357/v3
+
+
+
+<도메인, 프로젝트, 사용자 및 롤  생성>
+
+root@controller:~# openstack domain create --description "Default Domain" default
+
+root@controller:~# openstack project create --domain default --description "Admin Project" admin
+
+root@controller:~# openstack user create --domain default --password-prompt admin
+
+root@controller:~# openstack role create admin
+
+root@controller:~# openstack role add --project admin --user admin admin
+
+root@controller:~# openstack project create --domain default --description "Service Project" service
+
+root@controller:~# openstack project create --domain default --description "Demo Project" demo
+
+root@controller:~# openstack user create --domain default --password-prompt demo
+
+root@controller:~# openstack role create user
+
+root@controller:~# openstack role add --project demo --user demo user
+
+
+
+<테스트>
+
+root@controller:~# export
+
+root@controller:~# unset OS_IDENTITY_API_VERSION OS_TOKEN OS_URL
+
+root@controller:~# openstack --os-auth-url http://192.168.56.101:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name admin --os-username admin token issue
+
+root@controller:~# openstack --os-auth-url http://192.168.56.101:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name demo --os-username demo token issue
+
+root@controller:~# vi adminrc 
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=adminpass
+export OS_AUTH_URL=http://192.168.56.101:35357/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+
+-------------------------
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack token issue
+
+root@controller:~# vi demorc 
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=demo
+export OS_USERNAME=demo
+export OS_PASSWORD=demopass
+export OS_AUTH_URL=http://192.168.56.101:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+
+-------------------------
+
+root@controller:~# . demorc 
+
+root@controller:~# openstack token issue
+
+root@compute:~# vi adminrc 
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=adminpass
+export OS_AUTH_URL=http://192.168.56.101:35357/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+
+-------------------------
+
+root@compute:~# . adminrc 
+
+root@compute:~# openstack token issue
+
+root@compute:~# vi demorc 
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=demo
+export OS_USERNAME=demo
+export OS_PASSWORD=demopass
+export OS_AUTH_URL=http://192.168.56.101:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+
+-------------------------
+
+root@compute:~# . demorc 
+
+root@compute:~# openstack token issue
+
+
+
+<이미지 서비스>
+
+<설치 및 환경 설정>
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE glance;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'localhost' IDENTIFIED BY 'glancedbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'%' IDENTIFIED BY 'glancedbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt glance
+
+root@controller:~# openstack role add --project service --user glance admin
+
+root@controller:~# openstack service create --name glance --description "OpenStack Image" image
+
+root@controller:~# openstack endpoint create --region RegionOne image public http://192.168.56.101:9292
+
+root@controller:~# openstack endpoint create --region RegionOne image internal http://192.168.56.101:9292
+
+root@controller:~# openstack endpoint create --region RegionOne image admin http://192.168.56.101:9292
+
+root@controller:~# apt-get install glance
+
+root@controller:~# vi /etc/glance/glance-api.conf
+…
+[database]
+
+#
+# From oslo.db
+#
+connection = mysql+pymysql://glance:glancedbpass@192.168.56.101/glance?charset=utf8
+…
+[glance_store]
+
+#
+# From glance.store
+#
+stores = file,http
+…
+default_store = file
+…
+filesystem_store_datadir = /var/lib/glance/images/
+…
+[keystone_authtoken]
+
+#
+# From keystonemiddleware.auth_token
+#
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = glance
+password = glancepass
+…
+
+[paste_deploy]
+
+#
+# From glance.api
+#
+
+flavor = keystone
+
+-------------------------
+
+root@controller:~# vi /etc/glance/glance-registry.conf
+…
+[database]
+…
+connection = mysql+pymysql://glance:glancedbpass@192.168.56.101/glance?charset=utf8
+…
+[keystone_authtoken]
+
+#
+# From keystonemiddleware.auth_token
+#
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = glance
+password = glancepass
+…
+
+[paste_deploy]
+
+#
+# From glance.registry
+#
+flavor = keystone
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "glance-manage db_sync" glance
+
+root@controller:~# service glance-registry restart
+
+root@controller:~# service glance-registry status
+
+root@controller:~# service glance-api restart
+
+root@controller:~# service glance-api status
+
+
+
+<테스트>
+
+root@controller:~# wget http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img
+
+root@controller:~# ll
+
+root@controller:~# openstack image list
+
+root@controller:~# openstack image create "cirros" \
+    --file cirros-0.3.4-x86_64-disk.img \
+    --disk-format qcow2 --container-format bare \
+    --public
+
+root@controller:~# openstack image list
+
+
+
+<컨트롤러 노드 설치 및 환경 설정>
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE nova_api;
+MariaDB [(none)]> CREATE DATABASE nova;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'localhost' IDENTIFIED BY 'novadbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'%' IDENTIFIED BY 'novadbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'localhost' IDENTIFIED BY 'novadbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY 'novadbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# openstack user create --domain default --password-prompt nova
+
+root@controller:~# openstack role add --project service --user nova admin
+
+root@controller:~# openstack service create --name nova --description "OpenStack Compute" compute
+
+root@controller:~# openstack endpoint create --region RegionOne compute public http://192.168.56.101:8774/v2.1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne compute internal http://192.168.56.101:8774/v2.1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne compute admin http://192.168.56.101:8774/v2.1/%\(tenant_id\)s
+
+root@controller:~# apt-get install nova-api nova-conductor nova-consoleauth nova-novncproxy nova-scheduler
+
+root@controller:~# vi /etc/nova/nova.conf 
+[DEFAULT]
+dhcpbridge_flagfile=/etc/nova/nova.conf
+dhcpbridge=/usr/bin/nova-dhcpbridge
+logdir=/var/log/nova
+state_path=/var/lib/nova
+lock_path=/var/lock/nova
+force_dhcp_release=True
+libvirt_use_virtio_for_bridges=True
+verbose=True
+ec2_private_dns_show_ip=True
+api_paste_config=/etc/nova/api-paste.ini
+#enabled_apis=ec2,osapi_compute,metadata
+enabled_apis=osapi_compute,metadata
+rpc_backend = rabbit
+auth_strategy = keystone
+my_ip = 192.168.56.101
+use_neutron = True
+firewall_driver = nova.virt.firewall.NoopFirewallDriver
+
+[vnc]
+vncserver_listen = 192.168.56.101
+vncserver_proxyclient_address = 192.168.56.101
+
+[glance]
+api_servers = http://192.168.56.101:9292
+
+[oslo_concurrency]
+lock_path = /var/lib/nova/tmp
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = nova
+password = novapass
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+[api_database]
+connection = mysql+pymysql://nova:novadbpass@192.168.56.101/nova_api
+
+[database]
+connection = mysql+pymysql://nova:novadbpass@192.168.56.101/nova
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "nova-manage api_db sync" nova
+
+root@controller:~# su -s /bin/sh -c "nova-manage db sync" nova
+
+root@controller:~# service nova-api restart
+
+root@controller:~# service nova-api status
+
+root@controller:~# service nova-consoleauth restart
+
+root@controller:~# service nova-consoleauth status
+
+root@controller:~# service nova-scheduler restart
+
+root@controller:~# service nova-scheduler status
+
+root@controller:~# service nova-conductor restart
+
+root@controller:~# service nova-conductor status
+
+root@controller:~# service nova-novncproxy restart
+
+root@controller:~# service nova-novncproxy status
+
+
+
+<컴퓨트 노드 설치 및 환경 설정>
+
+root@compute:~# apt-get install nova-compute
+
+root@compute:~# vi /etc/nova/nova.conf 
+[DEFAULT]
+dhcpbridge_flagfile=/etc/nova/nova.conf
+dhcpbridge=/usr/bin/nova-dhcpbridge
+logdir=/var/log/nova
+state_path=/var/lib/nova
+lock_path=/var/lock/nova
+force_dhcp_release=True
+libvirt_use_virtio_for_bridges=True
+verbose=True
+ec2_private_dns_show_ip=True
+api_paste_config=/etc/nova/api-paste.ini
+#enabled_apis=ec2, osapi_compute,metadata
+enabled_apis=osapi_compute,metadata
+rpc_backend = rabbit
+auth_strategy = keystone
+my_ip = 192.168.56.102
+use_neutron = True
+firewall_driver = nova.virt.firewall.NoopFirewallDriver
+
+[vnc]
+enabled = True
+vncserver_listen = 0.0.0.0
+vncserver_proxyclient_address = 192.168.56.102
+novncproxy_base_url = http://192.168.56.101:6080/vnc_auto.html
+
+[glance]
+api_servers = http://192.168.56.101:9292
+
+[oslo_concurrency]
+lock_path = /var/lib/nova/tmp
+
+[libvirt]
+virt_type = kvm  #앞의 값에서 0이거나 VM이라면 qemu을 넣어줍니다.
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = nova
+password = novapass
+
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@compute:~# service nova-compute restart
+
+root@compute:~# service nova-compute status
+
+
+
+<테스트>
+
+root@compute:~# cat adminrc 
+
+root@compute:~# . adminrc 
+
+root@compute:~# openstack compute service list
+
+
+
+
+<네트워킹 서비스>
+
+<컨트롤러 노드 설치 및 환경 설정>
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE neutron;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY 'neutrondbpass';
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY 'neutrondbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt neutron
+
+root@controller:~# openstack role add --project service --user neutron admin
+
+root@controller:~# openstack service create --name neutron --description "OpenStack Networking" network
+
+root@controller:~# openstack endpoint create --region RegionOne network public http://192.168.56.101:9696
+
+root@controller:~# openstack endpoint create --region RegionOne network internal http://192.168.56.101:9696
+
+root@controller:~# openstack endpoint create --region RegionOne network admin http://192.168.56.101:9696
+
+root@controller:~# apt-get install neutron-server neutron-plugin-ml2 \
+    neutron-linuxbridge-agent neutron-l3-agent neutron-dhcp-agent \
+    neutron-metadata-agent
+
+root@controller:~# vi /etc/neutron/neutron.conf 
+[DEFAULT]
+auth_strategy = keystone
+core_plugin = ml2
+…
+service_plugins = router
+…
+allow_overlapping_ips = True
+…
+rpc_backend = rabbit
+
+[agent]
+root_helper = sudo /usr/bin/neutron-rootwrap /etc/neutron/rootwrap.conf
+
+[database]
+connection = mysql+pymysql://neutron:neutrondbpass@192.168.56.101/neutron
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = neutron
+password = neutronpass
+…
+[nova]
+auth_url = http://192.168.56.101:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = nova
+password = novapass
+…
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@controller:~# vi /etc/neutron/plugins/ml2/ml2_conf.ini 
+[DEFAULT]
+…
+
+[ml2]
+type_drivers = flat,vlan,vxlan
+…
+tenant_network_types = vxlan
+…
+mechanism_drivers = linuxbridge,l2population
+…
+extension_drivers = port_security
+…
+
+[ml2_type_flat]
+flat_networks = provider
+…
+
+[ml2_type_vxlan]
+vni_ranges = 1:1000
+…
+
+[securitygroup]
+enable_ipset = true
+
+-------------------------
+
+root@controller:~# vi /etc/neutron/plugins/ml2/linuxbridge_agent.ini
+[DEFAULT]
+…
+
+[linux_bridge]
+physical_interface_mappings = provider:eth1 #하이퍼바이저를 이용해 설치할 경우에는 enp0s8을 입력합니다.
+
+[securitygroup]
+firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+enable_security_group = true
+
+[vxlan]
+enable_vxlan = true
+…
+local_ip = 192.168.56.101
+l2_population = True
+
+-------------------------
+
+root@controller:~# vi /etc/neutron/l3_agent.ini 
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.BridgeInterfaceDriver
+external_network_bridge =  
+
+-------------------------
+
+root@controller:~# vi /etc/neutron/dhcp_agent.ini 
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.BridgeInterfaceDriver
+…
+dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+enable_isolated_metadata = True
+
+-------------------------
+
+root@controller:~# vi /etc/neutron/metadata_agent.ini 
+[DEFAULT]
+nova_metadata_ip = 192.168.56.101
+metadata_proxy_shared_secret = metasecret001
+
+-------------------------
+
+root@controller:~# vi /etc/nova/nova.conf
+…
+[neutron]
+url = http://192.168.56.101:9696
+auth_url = http://192.168.56.101:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = neutronpass
+
+service_metadata_proxy = True
+metadata_proxy_shared_secret = metasecret001
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "neutron-db-manage --config-file /etc/neutron/neutron.conf \
+    --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade head" neutron
+
+root@controller:~# service nova-api restart
+
+root@controller:~# service nova-api status
+
+root@controller:~# service neutron-server restart
+
+root@controller:~# service neutron-server status
+
+root@controller:~# service neutron-linuxbridge-agent restart
+
+root@controller:~# service neutron-linuxbridge-agent status
+
+root@controller:~# service neutron-dhcp-agent restart
+
+root@controller:~# service neutron-dhcp-agent status
+
+root@controller:~# service neutron-metadata-agent restart
+
+root@controller:~# service neutron-metadata-agent status
+
+root@controller:~# service neutron-l3-agent restart
+
+root@controller:~# service neutron-l3-agent status
+
+
+
+<컴퓨트 노드 설치 및 환경 설정>
+
+root@compute:~# apt-get install neutron-linuxbridge-agent
+
+root@compute:~# vi /etc/neutron/neutron.conf 
+[DEFAULT]
+…
+#core_plugin =  ml2
+
+
+[database]
+connection = sqlite:////var/lib/neutron/neutron.sqlite
+…
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = neutron
+password = neutronpass
+…
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@compute:~# vi /etc/neutron/plugins/ml2/linuxbridge_agent.ini 
+[DEFAULT]
+…
+
+[linux_bridge]
+physical_interface_mappings = provider:eth1 #하이퍼바이저에서 설치할 경우 enp0s8을 입력합니다.
+…
+
+[securitygroup]
+firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+enable_security_group = true
+
+[vxlan]
+enable_vxlan = true
+local_ip = 192.168.56.102
+l2_population = True
+
+-------------------------
+
+root@compute:~# vi /etc/nova/nova.conf
+…
+[neutron]
+url = http://192.168.56.101:9696
+auth_url = http://192.168.56.101:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = neutronpass
+
+-------------------------
+
+root@compute:~# service nova-compute restart
+
+root@compute:~# service nova-compute status
+
+root@compute:~# service neutron-linuxbridge-agent restart
+
+root@compute:~# service neutron-linuxbridge-agent status
+
+
+
+<테스트>
+
+root@compute:~# cat adminrc 
+
+root@compute:~# . adminrc 
+
+root@compute:~# neutron ext-list
+
+root@compute:~# neutron agent-list
+
+
+
+<대시보드>
+
+<설치 및 환경 설정>
+
+root@controller:~# apt-get install openstack-dashboard
+
+root@controller:~# vi /etc/openstack-dashboard/local_settings.py 
+# -*- coding: utf-8 -*-
+
+import os
+
+from django.utils.translation import ugettext_lazy as _
+
+from horizon.utils import secret_key
+
+from openstack_dashboard import exceptions
+from openstack_dashboard.settings import HORIZON_CONFIG
+
+DEBUG = False
+TEMPLATE_DEBUG = DEBUG
+
+WEBROOT = '/'
+…
+
+# 오픈스택 API 버전들을 설정합니다.
+OPENSTACK_API_VERSIONS = {
+    "identity": 3,
+    "image": 2,
+    "volume": 2,
+}
+…
+
+# 오픈스택의 멀티도메인 기능을 할 수 있게 설정합니다. 
+OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True
+
+# 오픈스택 keystone의 기본 도메인을 ‘default’로 설정합니다.
+OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'default'
+
+LOCAL_PATH = os.path.dirname(os.path.abspath(__file__))
+
+SECRET_KEY = secret_key.generate_or_read_from_file('/var/lib/openstack-dashboard/secret_key')
+
+# Memcached 정보를 설정합니다. Memcached는 컨트롤러 노드에 설치했으므로, 
+# 컨트롤러 노드의 관리용 IP와 memcached 포트를 LOCATION에 입력합니다.
+# 오픈스택 공식 매뉴얼에는 SESSION_ENGINE를 설정하라고 되어 있지만, 
+# 해당 항목이 없기 때문에 여기서는 설정하지 않습니다.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+        'LOCATION': '192.168.56.101:11211',
+    },
+}
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# 오프스택 대시보드를 실행할 컨트롤러 노드의 관리용 IP를 OPENSTACK_HOST에 설정합니다.
+OPENSTACK_HOST = "192.168.56.101"
+# 오픈스택 keystone URL을 설정합니다.
+OPENSTACK_KEYSTONE_URL = "http://%s:5000/v3" % OPENSTACK_HOST
+# 오픈스택 keystone의 기본 권한을 “user”로 설정합니다.
+OPENSTACK_KEYSTONE_DEFAULT_ROLE = "user"
+…
+# 오픈스택의 타임존을 설정합니다. 해당을 값을 통해 대시보드에 표현될 언어가 설정됩니다.
+TIME_ZONE = "Asia/Seoul"
+
+…
+###############################################################################
+# Ubuntu Settings
+###############################################################################
+
+try:
+  from ubuntu_theme import *
+except ImportError:
+  pass
+
+WEBROOT='/horizon/'
+
+# 외부의 다른 노드에서 대시보드에 접속할 수 있게 ALLOWED_HOSTS를 ‘*’로 설정합니다. 
+# 이미 기본으로 설정이 되어 있기 때문에 ‘*’로 설정되어 있는지만 확인합니다.
+ALLOWED_HOSTS = '*'
+
+COMPRESS_OFFLINE = True
+
+-------------------------
+
+root@controller:~# service apache2 reload
+
+root@controller:~# service apache2 status
+
+
+
+<블록 스토리지 서비스>
+
+<컨트롤러 노드 설치 및 환경 설정>
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE cinder;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'localhost' IDENTIFIED BY 'cinderdbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON cinder.* TO 'cinder'@'%' IDENTIFIED BY 'cinderdbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt cinder
+
+root@controller:~# openstack role add --project service --user cinder admin
+
+root@controller:~# openstack service create --name cinder --description "OpenStack Block Storage" volume
+
+root@controller:~# openstack service create --name cinderv2 --description "OpenStack Block Storage" volumev2
+
+root@controller:~# openstack endpoint create --region RegionOne volume public http://192.168.56.101:8776/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne volume internal http://192.168.56.101:8776/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne volume admin http://192.168.56.101:8776/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne volumev2 public http://192.168.56.101:8776/v2/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne volumev2 internal http://192.168.56.101:8776/v2/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne volumev2 admin http://192.168.56.101:8776/v2/%\(tenant_id\)s
+
+root@controller:~# apt-get install cinder-api cinder-scheduler
+
+root@controller:~# vi /etc/cinder/cinder.conf 
+[DEFAULT]
+rootwrap_config = /etc/cinder/rootwrap.conf
+api_paste_confg = /etc/cinder/api-paste.ini
+iscsi_helper = tgtadm
+volume_name_template = volume-%s
+volume_group = cinder-volumes
+verbose = True
+auth_strategy = keystone
+state_path = /var/lib/cinder
+lock_path = /var/lock/cinder
+volumes_dir = /var/lib/cinder/volumes
+
+rpc_backend = rabbit
+my_ip = 192.168.56.101
+
+[database]
+connection = mysql+pymysql://cinder:cinderdbpass@192.168.56.101/cinder
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = cinder
+password = cinderpass
+
+[oslo_concurrency]
+lock_path = /var/lib/cinder/tmp
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "cinder-manage db sync" cinder
+
+root@controller:~# vi /etc/nova/nova.conf
+[cinder]
+os_region_name = RegionOne
+
+-------------------------
+
+root@controller:~# service nova-api restart
+
+root@controller:~# service nova-api status
+
+root@controller:~# service cinder-scheduler restart
+
+root@controller:~# service cinder-scheduler status
+
+root@controller:~# service cinder-api restart
+
+root@controller:~# service cinder-api status
+
+
+
+<스토리지 노드 설치 및 환경 설정>
+
+root@compute:~# fdisk -l
+
+root@compute:~# apt-get install lvm2
+
+root@compute:~# pvcreate /dev/sdb
+
+root@compute:~# vgcreate cinder-volumes /dev/sdb
+
+root@compute:~# vi /etc/lvm/lvm.conf
+# This is an example configuration file for the LVM2 system.
+# It contains the default settings that would be used if there was no
+# /etc/lvm/lvm.conf file.
+#
+
+# Configuration section config.
+# How LVM configuration settings are handled.
+config {
+	checks = 1
+	abort_on_errors = 0
+	profile_dir = "/etc/lvm/profile"
+}
+
+# Configuration section devices.
+# How LVM uses block devices.
+devices {
+	dir = "/dev"
+	scan = [ "/dev" ]
+	obtain_device_list_from_udev = 1
+	external_device_info_source = "none"
+	filter = [ "a/sdb/", "r/.*/"]
+	cache_dir = "/run/lvm"
+	cache_file_prefix = ""
+	write_cache_state = 1
+	sysfs_scan = 1
+	multipath_component_detection = 1
+	md_component_detection = 1
+	fw_raid_component_detection = 0
+	md_chunk_alignment = 1
+	data_alignment_detection = 1
+	data_alignment = 0
+     #data_alignment_offset_dection =1 
+	ignore_suspended_devices = 0
+	ignore_lvm_mirrors = 1
+	disable_after_error_count = 0
+	require_restorefile_with_uuid = 1
+	pv_min_size = 2048
+	issue_discards = 1
+}
+
+# Configuration section allocation.
+# How LVM selects space and applies properties to LVs.
+allocation { 
+	maximise_cling = 1
+	use_blkid_wiping = 1
+	wipe_signatures_when_zeroing_new_lvs = 1
+	mirror_logs_require_separate_pvs = 0
+	cache_pool_metadata_require_separate_pvs = 0
+     #thin_pool_metadata_require_separate_pvs = 0
+}
+
+# Configuration section log.
+# How LVM log information is reported.
+log {
+	verbose = 0
+	silent = 0
+	syslog = 1
+	overwrite = 0
+	level = 0
+	indent = 1
+	command_names = 0
+	prefix = "  "
+	activation = 0
+	debug_classes = [ "memory", "devices", "activation", "allocation", "lvmetad", "metadata", "cache", "locking", "lvmpolld" ]
+}
+
+# Configuration section backup.
+backup {
+	backup = 1
+	backup_dir = "/etc/lvm/backup"
+	archive = 1
+	archive_dir = "/etc/lvm/archive"
+	retain_min = 10
+	retain_days = 30
+}
+
+# Configuration section shell.
+# Settings for running LVM in shell (readline) mode.
+shell {
+	history_size = 100
+}
+
+# Configuration section global.
+# Miscellaneous global LVM settings.
+global {
+	umask = 077
+	test = 0
+	units = "h"
+	si_unit_consistency = 1
+	suffix = 1
+	activation = 1
+	proc = "/proc"
+	etc = "/etc"
+	locking_type = 1
+	wait_for_locks = 1
+	fallback_to_clustered_locking = 1
+	fallback_to_local_locking = 1
+	locking_dir = "/run/lock/lvm"
+	prioritise_write_locks = 1
+	abort_on_internal_errors = 0
+	detect_internal_vg_cache_corruption = 0
+	metadata_read_only = 0
+	mirror_segtype_default = "raid1"
+	raid10_segtype_default = "raid10"
+	sparse_segtype_default = "thin"
+	use_lvmetad = 1
+	use_lvmlockd = 0
+	system_id_source = "none"
+	use_lvmpolld = 1
+}
+
+# Configuration section activation.
+activation {
+	checks = 0
+	udev_sync = 1
+	udev_rules = 1
+	verify_udev_operations = 0
+	retry_deactivation = 1
+	missing_stripe_filler = "error"
+	use_linear_target = 1
+	reserved_stack = 64
+	reserved_memory = 8192
+	process_priority = -18
+	raid_region_size = 512
+	readahead = "auto"
+	raid_fault_policy = "warn" 
+	mirror_image_fault_policy = "remove"
+	mirror_log_fault_policy = "allocate"
+	snapshot_autoextend_threshold = 100
+	snapshot_autoextend_percent = 20
+# thin_pool_autoextend_threshold = 100
+	thin_pool_autoextend_percent = 20
+	use_mlockall = 0
+	monitoring = 1
+	polling_interval = 15
+	activation_mode = "degraded"
+}
+
+# Configuration section dmeventd.
+# Settings for the LVM event daemon.
+dmeventd {
+	mirror_library = "libdevmapper-event-lvm2mirror.so"
+	snapshot_library = "libdevmapper-event-lvm2snapshot.so"
+	thin_library = "libdevmapper-event-lvm2thin.so"
+}
+
+-------------------------
+
+root@compute:~# apt-get install cinder-volume
+
+root@compute:~# vi /etc/cinder/cinder.conf
+[DEFAULT]
+rootwrap_config = /etc/cinder/rootwrap.conf
+api_paste_confg = /etc/cinder/api-paste.ini
+iscsi_helper = tgtadm
+volume_name_template = volume-%s
+volume_group = cinder-volumes
+verbose = True
+auth_strategy = keystone
+state_path = /var/lib/cinder
+lock_path = /var/lock/cinder
+volumes_dir = /var/lib/cinder/volumes
+
+rpc_backend = rabbit
+my_ip = 192.168.56.102
+enabled_backends = lvm
+glance_api_servers = http://192.168.56.101:9292
+
+
+[database]
+connection = mysql+pymysql://cinder:cinderdbpass@192.168.56.101/cinder
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = cinder
+password = cinderpass
+
+[lvm]
+volume_driver = cinder.volume.drivers.lvm.LVMVolumeDriver
+volume_group = cinder-volumes
+iscsi_protocol = iscsi
+iscsi_helper = tgtadm
+
+[oslo_concurrency]
+lock_path = /var/lib/cinder/tmp
+
+-------------------------
+
+root@compute:~# service tgt restart
+
+root@compute:~# service tgt status
+
+root@compute:~# service cinder-volume restart
+
+root@compute:~# service cinder-volume status
+
+
+
+<테스트>
+
+root@compute:~# cat adminrc 
+
+root@compute:~# . adminrc
+
+root@controller:~# cinder service-list
+
+
+
+<공유 파일 시스템 서비스>
+
+<컨트롤러 노드 설치 및 환경 설정>
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE manila;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON manila.* TO 'manila'@'localhost' IDENTIFIED BY 'maniladbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON manila.* TO 'manila'@'%' IDENTIFIED BY 'maniladbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt manila
+
+root@controller:~# openstack role add --project service --user manila admin
+
+root@controller:~# openstack service create --name manila --description "OpenStack Shared File Systems" share
+
+root@controller:~# openstack service create --name manilav2 --description "OpenStack Shared File Systems" sharev2
+
+root@controller:~# openstack endpoint create --region RegionOne share public http://192.168.56.101:8786/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne share internal http://192.168.56.101:8786/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne share admin http://192.168.56.101:8786/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne sharev2 public http://192.168.56.101:8786/v2/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne sharev2 internal http://192.168.56.101:8786/v2/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne sharev2 admin http://192.168.56.101:8786/v2/%\(tenant_id\)s
+
+root@controller:~# apt-get install manila-api manila-scheduler python-manilaclient
+
+root@controller:~# vi /etc/manila/manila.conf 
+[DEFAULT]
+…
+rpc_backend = rabbit
+default_share_type = default_share_type
+rootwrap_config = /etc/manila/rootwrap.conf
+auth_strategy = keystone
+my_ip = 192.168.56.101
+…
+
+[database]
+connection = mysql+pymysql://manila:maniladbpass@192.168.56.101/manila
+
+[keystone_authtoken]
+…
+memcached_servers = 192.168.56.101:11211
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = manila
+password = manilapass
+…
+
+[oslo_concurrency]
+lock_path = /var/lib/manila/tmp
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass 
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "manila-manage db sync" manila
+
+root@controller:~# service manila-scheduler restart
+
+root@controller:~# service manila-scheduler status
+
+root@controller:~# service manila-api restart
+
+root@controller:~# service manila-api status
+
+
+
+<공유 노드 설치 및 환경 설정>
+
+root@compute:~# apt-get install manila-share python-pymysql
+
+root@compute:~# vi /etc/manila/manila.conf 
+[DEFAULT]
+rpc_backend = rabbit
+default_share_type = default_share_type
+rootwrap_config = /etc/manila/rootwrap.conf
+auth_strategy = keystone
+my_ip = 192.168.56.102
+…
+[database]
+connection = mysql+pymysql://manila:maniladbpass@192.168.56.101/manila
+…
+
+[keystone_authtoken]
+memcached_servers = 192.168.56.101:11211
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = manila
+password = manilapass
+
+[oslo_concurrency]
+lock_path = /var/lib/manila/tmp
+
+[oslo_messaging_rabbit]
+rabbit_host = controller
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@compute:~# apt-get install neutron-plugin-linuxbridge-agent
+
+root@compute:~# vi /etc/manila/manila.conf 
+[DEFAULT]
+rpc_backend = rabbit
+default_share_type = default_share_type
+rootwrap_config = /etc/manila/rootwrap.conf
+auth_strategy = keystone
+my_ip = 192.168.56.102
+enabled_share_backends = generic
+enabled_share_protocols = NFS,CIFS
+
+[neutron]
+url = http://192.168.56.101:9696
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = neutronpass
+
+[nova]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = nova
+password = novapass
+
+[cinder]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = cinder
+password = cinderpass
+
+[generic]
+share_backend_name = GENERIC
+share_driver = manila.share.drivers.generic.GenericShareDriver
+driver_handles_share_servers = True
+service_instance_flavor_id = 100
+service_image_name = manila-service-image
+service_instance_user = manila
+service_instance_password = manilapass
+interface_driver = manila.network.linux.interface.BridgeInterfaceDriver
+
+-------------------------
+
+root@compute:~# service manila-share restart
+
+root@compute:~# service manila-share status
+
+
+
+<테스트>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# manila service-list
+
+
+
+<오브젝트 스토리지 서비스>
+
+<컨트롤러 노드 설치 및 환경 설정>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt swift
+
+root@controller:~# openstack role add --project service --user swift admin
+
+root@controller:~# openstack service create --name swift --description "OpenStack Object Storage" object-store
+
+root@controller:~# openstack endpoint create --region RegionOne object-store public http://192.168.56.101:8080/v1/AUTH_%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne object-store internal http://192.168.56.101:8080/v1/AUTH_%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne object-store admin http://192.168.56.101:8080/v1
+
+root@controller:~# apt-get install swift swift-proxy python-swiftclient python-keystoneclient python-keystonemiddleware memcached
+
+root@controller:~# mkdir -p /etc/swift
+
+root@controller:~# curl -o /etc/swift/proxy-server.conf https://git.openstack.org/cgit/openstack/swift/plain/etc/proxy-server.conf-sample?h=stable/mitaka
+
+root@controller:~# vi /etc/swift/proxy-server.conf 
+[DEFAULT]
+…
+bind_port = 8080
+swift_dir = /etc/swift
+user = swift
+…
+[pipeline:main]
+pipeline = catch_errors gatekeeper healthcheck proxy-logging cache container_sync bulk tempurl ratelimit authtoken keystoneauth container-quotas account-quotas slo dlo versioned_writes proxy-logging proxy-server
+…
+[app:proxy-server]
+use = egg:swift#proxy
+..
+allow_account_management = true
+…
+account_autocreate = true 
+
+[filter:authtoken]
+paste.filter_factory = keystonemiddleware.auth_token:filter_factory
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_plugin = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = swift
+password = swiftpass
+delay_auth_decision = True
+ 
+[filter:keystoneauth]
+use = egg:swift#keystoneauth
+operator_roles = admin, user
+
+[filter:healthcheck]
+use = egg:swift#healthcheck
+
+[filter:cache]
+use = egg:swift#memcache
+memcache_servers = 192.168.56.101:11211
+
+-------------------------
+
+root@controller:~# sudo apt-get install build-essential python-dev python-pip autoconf automake libtool
+
+root@controller:~# git clone https://github.com/openstack/liberasurecode.git
+
+root@controller:~# cd liberasurecode
+
+root@controller:~/liberasurecode# ./autogen.sh 
+
+root@controller:~/liberasurecode# ./configure 
+
+root@controller:~/liberasurecode# make
+
+root@controller:~/liberasurecode# make test
+
+root@controller:~/liberasurecode# make install
+
+root@controller:~/liberasurecode# cd ..
+
+root@controller:~# git clone https://github.com/openstack/pyeclib.git
+
+root@controller:~# pip install --upgrade pip
+
+root@controller:~# cd pyeclib
+
+root@controller:~/pyeclib# pip install -U bindep -r test-requirements.txt
+
+root@controller:~/pyeclib# ldconfig
+
+root@controller:~/pyeclib# python setup.py install
+
+root@controller:~/pyeclib# ./.unittests 
+
+
+
+<스토리지 노드 설치 및 환경 설정>
+
+root@compute:~# apt-get install xfsprogs rsync
+
+root@compute:~# fdisk ?l
+
+root@compute:~# fdisk /dev/sdc
+
+root@compute:~# fdisk /dev/sdd
+
+root@compute:~# fdisk /dev/sde
+
+root@compute:~# fdisk -l
+
+root@compute:~# mkfs.xfs /dev/sdc1
+
+root@compute:~# mkfs.xfs /dev/sdd1
+
+root@compute:~# mkfs.xfs /dev/sde1
+
+root@compute:~# mkdir -p /srv/node/sdc1
+
+root@compute:~# mkdir -p /srv/node/sdd1
+
+root@compute:~# mkdir -p /srv/node/sde1
+
+root@compute:~# vi /etc/fstab 
+…
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>
+# / was on /dev/sda1 during installation
+UUID=311cdfed-0851-40df-ae0e-c45f6c1224b5 /               ext4    errors=remount-ro 0       1
+/dev/sdc1 /srv/node/sdc1 xfs noatime,nodiratime,nobarrier,logbufs=8 0 2
+/dev/sdd1 /srv/node/sdd1 xfs noatime,nodiratime,nobarrier,logbufs=8 0 2
+/dev/sde1 /srv/node/sde1 xfs noatime,nodiratime,nobarrier,logbufs=8 0 2
+…
+
+-------------------------
+
+root@compute:~# mount /srv/node/sdc1
+
+root@compute:~# mount /srv/node/sdd1
+
+root@compute:~# mount /srv/node/sde1
+
+root@compute:~# vi /etc/rsyncd.conf
+uid = swift
+gid = swift
+log file = /var/log/rsyncd.log
+pid file = /var/run/rsyncd.pid
+address = 192.168.56.102
+
+[account]
+max connections = 2
+path = /srv/node/
+read only = False
+lock file = /var/lock/account.lock
+
+[container]
+max connections = 2
+path = /srv/node/
+read only = False
+lock file = /var/lock/container.lock
+
+[object]
+max connections = 2
+path = /srv/node/
+read only = False
+lock file = /var/lock/object.lock
+
+-------------------------
+
+root@compute:~# vi /etc/default/rsync 
+# defaults file for rsync daemon mode
+
+# start rsync in daemon mode from init.d script?
+#  only allowed values are "true", "false", and "inetd"
+#  Use "inetd" if you want to start the rsyncd from inetd,
+#  all this does is prevent the init.d script from printing a message
+#  about not starting rsyncd (you still need to modify inetd's config yourself).
+RSYNC_ENABLE=true
+…
+
+-------------------------
+
+root@compute:~# service rsync restart
+
+root@compute:~# service rsync status
+
+root@compute:~# apt-get install swift swift-account swift-container swift-object
+
+root@compute:~# curl -o /etc/swift/account-server.conf https://git.openstack.org/cgit/openstack/swift/plain/etc/account-server.conf-sample?h=stable/mitaka
+
+root@compute:~# curl -o /etc/swift/container-server.conf https://git.openstack.org/cgit/openstack/swift/plain/etc/container-server.conf-sample?h=stable/mitaka
+
+root@compute:~# curl -o /etc/swift/object-server.conf https://git.openstack.org/cgit/openstack/swift/plain/etc/object-server.conf-sample?h=stable/mitaka
+
+root@compute:~# vi /etc/swift/account-server.conf 
+[DEFAULT]
+bind_ip = 0.0.0.0
+bind_port = 6002
+user = swift
+swift_dir = /etc/swift
+devices = /srv/node
+mount_check = true
+
+[pipeline:main]
+pipeline = healthcheck recon account-server
+
+[app:account-server]
+use = egg:swift#account
+
+[filter:healthcheck]
+use = egg:swift#healthcheck
+
+[filter:recon]
+use = egg:swift#recon
+recon_cache_path = /var/cache/swift
+
+[account-replicator]
+…
+[account-auditor]
+…
+[account-reaper]
+…
+[filter:xprofile]
+use = egg:swift#xprofile
+
+-------------------------
+
+root@compute:~# vi /etc/swift/container-server.conf 
+[DEFAULT]
+bind_ip = 0.0.0.0
+bind_port = 6001
+user = swift
+swift_dir = /etc/swift
+devices = /srv/node
+mount_check = true
+
+[pipeline:main]
+pipeline = healthcheck recon container-server
+
+[app:container-server]
+use = egg:swift#container
+
+[filter:healthcheck]
+use = egg:swift#healthcheck
+
+[filter:recon]
+use = egg:swift#recon
+recon_cache_path = /var/cache/swift
+
+[container-replicator]
+…
+[container-updater]
+…
+[container-auditor]
+…
+[container-sync]
+
+[filter:xprofile]
+use = egg:swift#xprofile
+
+-------------------------
+
+root@compute:~# vi /etc/swift/object-server.conf 
+[DEFAULT]
+bind_ip = 0.0.0.0
+bind_port = 6000
+user = swift
+swift_dir = /etc/swift
+devices = /srv/node
+mount_check = true
+
+[pipeline:main]
+pipeline = healthcheck recon object-server
+
+[app:object-server]
+use = egg:swift#object
+
+[filter:healthcheck]
+use = egg:swift#healthcheck
+
+[filter:recon]
+use = egg:swift#recon
+recon_cache_path = /var/cache/swift
+recon_lock_path = /var/lock
+
+[object-replicator]
+…
+[object-reconstructor]
+…
+[object-updater]
+…
+[object-auditor]
+…
+[filter:xprofile]
+use = egg:swift#xprofile
+
+-------------------------
+
+root@compute:~# chown -R swift:swift /srv/node
+
+root@compute:~# mkdir -p /var/cache/swift
+
+root@compute:~# chown -R swift:swift /var/cache/swift
+
+root@compute:~# chmod -R 775 /var/cache/swift
+
+
+
+<링 생성 및 초기화>
+
+root@controller:~# cd /etc/swift/
+
+root@controller:/etc/swift# swift-ring-builder account.builder create 10 3 1
+
+root@controller:/etc/swift# swift-ring-builder account.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6002 --device sdc1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder account.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6002 --device sdd1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder account.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6002 --device sde1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder account.builder
+
+root@controller:/etc/swift# swift-ring-builder account.builder rebalance
+
+root@controller:/etc/swift# swift-ring-builder container.builder create 10 3 1
+
+root@controller:/etc/swift# swift-ring-builder container.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6001 --device sdc1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder container.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6001 --device sdd1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder container.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6001 --device sde1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder container.builder
+
+root@controller:/etc/swift# swift-ring-builder container.builder rebalance
+
+root@controller:/etc/swift# swift-ring-builder object.builder create 10 3 1
+
+root@controller:/etc/swift# swift-ring-builder object.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6000 --device sdc1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder object.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6000 --device sdd1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder object.builder add --region 1 --zone 1 --ip 192.168.56.102 --port 6000 --device sde1 --weight 100
+
+root@controller:/etc/swift# swift-ring-builder object.builder
+
+root@controller:/etc/swift# swift-ring-builder object.builder rebalance
+
+root@controller:/etc/swift# ll
+
+root@controller:/etc/swift# curl -o /etc/swift/swift.conf https://git.openstack.org/cgit/openstack/swift/plain/etc/swift.conf-sample?h=stable/mitaka
+
+root@controller:/etc/swift# vi swift.conf 
+[swift-hash]
+
+# swift_hash_path_suffix and swift_hash_path_prefix are used as part of the
+# the hashing algorithm when determining data placement in the cluster.
+# These values should remain secret and MUST NOT change
+# once a cluster has been deployed.
+# Use only printable chars (python -c "import string; print(string.printable)")
+
+swift_hash_path_suffix = openstack_swift_test_suffix
+swift_hash_path_prefix = openstack_swift_test_prefix
+
+-------------------------
+
+root@controller:/etc/swift# scp swift.conf nalee@compute:~/
+
+root@controller:/etc/swift# scp *.ring.gz nalee@compute:~/
+
+root@compute:~# mv /home/nalee/swift.conf /etc/swift/
+
+root@compute:~# mv /home/nalee/*.ring.gz /etc/swift/
+
+root@compute:~# 
+
+root@compute:~# cd /etc/swift/
+
+root@compute:/etc/swift# ll
+
+
+
+<팁>패스워드 없이 접속할 수 있는 SSH-Key 설정하기
+
+root@compute:~# vi /etc/ssh/sshd_config
+…
+# Change to no to disable tunnelled clear text passwords
+PasswordAuthentication no
+
+-------------------------
+
+root@compute:~# service ssh restart
+root@compute:~# service ssh status
+root@compute:~# ssh-keygen -t rsa
+root@compute:~# mv ~/.ssh/id_rsa.pub ~/.ssh/authorized_keys
+root@compute:~# chmod 600 ~/.ssh/authorized_keys 
+root@compute:~# ll ~/.ssh
+root@controller:~# vi .ssh/id_rsa
+root@controller:~# chmod 600 .ssh/id_rsa 
+root@controller:~# ssh root@192.168.56.102
+</팁>
+
+
+
+root@compute:/etc/swift# chown -R root:swift /etc/swift
+
+root@compute:/etc/swift# ll
+
+root@controller:/etc/swift# chown -R root:swift /etc/swift
+
+root@controller:/etc/swift# ll
+
+root@controller:/etc/swift# cd
+
+root@controller:~# service memcached restart
+
+root@controller:~# service memcached status
+
+root@controller:~# service swift-proxy restart
+
+root@controller:~# service swift-proxy status
+
+root@compute:/etc/swift# cd
+
+root@compute:~# swift-init all start
+
+root@compute:~# ps -ef | grep swift
+
+
+
+<테스트>
+
+root@controller:~# cat demorc 
+
+root@controller:~# . demorc 
+
+root@controller:~# swift stat
+
+root@controller:~# openstack container create demo_container
+
+root@controller:~# vi testfile
+Hi~!!
+I am a testfile
+
+-------------------------
+
+root@controller:~# openstack object create demo_container testfile
+
+root@controller:~# openstack object show demo_container testfile
+
+root@controller:~# mkdir test
+
+root@controller:~# cd test
+
+root@controller:~/test# openstack object save demo_container testfile
+
+root@controller:~/test# ll
+
+
+
+<오케스트레이션 서비스>
+
+<설치 및 환경 설정>
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE heat;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'localhost' IDENTIFIED BY 'heatdbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'%' IDENTIFIED BY 'heatdbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt heat
+
+root@controller:~# openstack role add --project service --user heat admin
+
+root@controller:~# openstack service create --name heat --description "Orchestration" orchestration
+
+root@controller:~# openstack service create --name heat-cfn --description "Orchestration" cloudformation
+
+root@controller:~# openstack endpoint create --region RegionOne orchestration public http://192.168.56.101:8004/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne orchestration internal http://192.168.56.101:8004/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne orchestration admin http://192.168.56.101:8004/v1/%\(tenant_id\)s
+
+root@controller:~# openstack endpoint create --region RegionOne cloudformation public http://192.168.56.101:8000/v1
+
+root@controller:~# openstack endpoint create --region RegionOne cloudformation internal http://192.168.56.101:8000/v1
+
+root@controller:~# openstack endpoint create --region RegionOne cloudformation admin http://192.168.56.101:8000/v1
+
+root@controller:~# openstack domain create --description "Stack projects and users" heat
+
+root@controller:~# openstack user create --domain heat --password-prompt heat_domain_admin
+
+root@controller:~# openstack role add --domain heat --user-domain heat --user heat_domain_admin admin
+
+root@controller:~# openstack role create heat_stack_owner
+
+root@controller:~# openstack role add --project demo --user demo heat_stack_owner
+
+root@controller:~# openstack role create heat_stack_user
+
+root@controller:~# apt-get install heat-api heat-api-cfn heat-engine
+
+root@controller:~# vi /etc/heat/heat.conf 
+[DEFAULT]
+…
+heat_metadata_server_url = http://192.168.56.101:8000
+heat_waitcondition_server_url = http://192.168.56.101:8000/v1/waitcondition
+
+stack_domain_admin = heat_domain_admin
+stack_domain_admin_password = heatpass
+stack_user_domain_name = heat
+
+rpc_backend = rabbit
+…
+[database]
+connection = mysql+pymysql://heat:heatdbpass@192.168.56.101/heat 
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = heat
+password = heatpass
+
+[trustee]
+auth_plugin = password
+auth_url = http://192.168.56.101:35357
+username = heat
+password = heatpass
+user_domain_name = default
+
+[clients_keystone]
+auth_uri = http://192.168.56.101:35357
+
+[ec2authtoken]
+auth_uri = http://192.168.56.101:5000
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@controller:~# su -s /bin/sh -c "heat-manage db_sync" heat
+
+root@controller:~# service heat-api restart
+
+root@controller:~# service heat-api status
+
+root@controller:~# service heat-api-cfn restart
+
+root@controller:~# service heat-api-cfn status
+
+root@controller:~# service heat-engine restart
+
+root@controller:~# service heat-engine status
+
+
+
+<테스트>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack orchestration service list
+
+
+
+<텔레미터 서비스>
+
+<설치 및 환경 설정>
+
+root@controller:~# mongo --host 192.168.56.101 --eval '
+   db = db.getSiblingDB("ceilometer");
+   db.createUser({user: "ceilometer",
+   pwd: "ceilometerdbpass",
+   roles: [ "readWrite", "dbAdmin" ]})'
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# openstack user create --domain default --password-prompt ceilometer
+
+root@controller:~# openstack role add --project service --user ceilometer admin
+
+root@controller:~# openstack service create --name ceilometer --description "Telemetry" metering
+
+root@controller:~# openstack endpoint create --region RegionOne metering public http://192.168.56.101:8777
+
+root@controller:~# openstack endpoint create --region RegionOne metering internal http://192.168.56.101:8777
+
+root@controller:~# openstack endpoint create --region RegionOne metering admin http://192.168.56.101:8777
+
+root@controller:~# apt-get install ceilometer-api ceilometer-collector ceilometer-agent-central ceilometer-agent-notification python-ceilometerclient
+
+root@controller:~# vi /etc/ceilometer/ceilometer.conf 
+[DEFAULT]
+rpc_backend = rabbit
+auth_strategy = keystone
+
+[database]
+connection = mongodb://ceilometer:ceilometerdbpass@192.168.56.101:27017/ceilometer
+…
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = ceilometer
+password = ceilometerpass
+
+[service_credentials]
+auth_type = password
+auth_url = http://192.168.56.101:5000/v3
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = ceilometer
+password = ceilometerpass
+interface = internalURL
+region_name = RegionOne
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@controller:~# service ceilometer-agent-central restart
+
+root@controller:~# service ceilometer-agent-central status
+
+root@controller:~# service ceilometer-agent-notification restart
+
+root@controller:~# service ceilometer-agent-notification status
+
+root@controller:~# service ceilometer-api restart
+
+root@controller:~# service ceilometer-api status
+
+root@controller:~# service ceilometer-collector restart
+
+root@controller:~# service ceilometer-collector status
+
+
+
+<이미지 서비스 활성화>
+
+root@controller:~# vi /etc/glance/glance-api.conf 
+[DEFAULT]
+rpc_backend = rabbit
+…
+[oslo_messaging_notifications]
+driver = messagingv2
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@controller:~# vi /etc/glance/glance-registry.conf 
+[DEFAULT]
+rpc_backend = rabbit
+
+[oslo_messaging_notifications]
+driver = messagingv2
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@controller:~# service glance-registry restart
+
+root@controller:~# service glance-registry status
+
+root@controller:~# service glance-api restart
+
+root@controller:~# service glance-api status
+
+
+
+<컴퓨트 서비스 활성화>
+
+root@compute:~# apt-get install ceilometer-agent-compute
+
+root@compute:~# vi /etc/ceilometer/ceilometer.conf 
+[DEFAULT]
+rpc_backend = rabbit
+auth_strategy = keystone
+…
+[service_credentials]
+os_auth_url = http://192.168.56.101:5000/v2.0
+os_username = ceilometer
+os_tenant_name = service
+os_password = ceilometerpass
+interface = internalURL
+region_name = RegionOne
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = ceilometer
+password = ceilometerpass
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+-------------------------
+
+root@compute:~# vi /etc/nova/nova.conf 
+[DEFAULT]
+…
+instance_usage_audit = True
+instance_usage_audit_period = hour
+notify_on_state_change = vm_and_task_state
+notification_driver = messagingv2
+
+-------------------------
+
+root@compute:~# service ceilometer-agent-compute restart
+
+root@compute:~# service ceilometer-agent-compute status
+
+root@compute:~# service nova-compute restart
+
+root@compute:~# service nova-compute status
+
+
+
+<블록 스토리지 서비스 활성화>
+
+root@controller:~# vi /etc/cinder/cinder.conf 
+…
+[oslo_messaging_notifications]
+driver = messagingv2
+
+-------------------------
+
+root@controller:~# service cinder-api restart
+
+root@controller:~# service cinder-api status
+
+root@controller:~# service cinder-scheduler restart
+
+root@controller:~# service cinder-scheduler status
+
+root@compute:~# vi /etc/cinder/cinder.conf 
+…
+[oslo_messaging_notifications]
+driver = messagingv2
+
+-------------------------
+
+root@compute:~# service cinder-volume restart
+
+root@compute:~# service cinder-volume status
+
+
+
+<오브젝트 스토리지 서비스 활성화>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# openstack role create ResellerAdmin
+
+root@controller:~# openstack role add --project service --user ceilometer ResellerAdmin
+
+root@controller:~# apt-get install python-ceilometermiddleware
+
+root@controller:~# vi /etc/swift/proxy-server.conf 
+…
+[pipeline:main]
+pipeline = ceilometer gatekeeper healthcheck proxy-logging cache container_sync bulk tempurl ratelimit authtoken keystoneauth container-quotas account-quotas slo dlo versioned_writes proxy-logging proxy-server
+…
+<저자 검토 후 바뀔 수 있음. pipeline>
+[filter:keystoneauth]
+use = egg:swift#keystoneauth
+operator_roles = admin, user, ResellerAdmin
+…
+[filter:ceilometer]
+paste.filter_factory = ceilometermiddleware.swift:filter_factory
+control_exchange = swift
+url = rabbit://openstack:rabbitpass@192.168.56.102:5672/
+driver = messagingv2
+topic = notifications
+log_level = WARN
+
+-------------------------
+
+root@controller:~# service swift-proxy restart
+
+root@controller:~# service swift-proxy status
+
+
+
+<알람 서비스>
+
+root@controller:~# mysql -u root -popenstack
+MariaDB [(none)]> CREATE DATABASE aodh;
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON aodh.* TO 'aodh'@'localhost' IDENTIFIED BY 'aodhdbpass';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON aodh.* TO 'aodh'@'%' IDENTIFIED BY 'aodhdbpass';
+MariaDB [(none)]> exit;
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# openstack user create --domain default --password-prompt aodh
+
+root@controller:~# openstack role add --project service --user aodh admin
+
+root@controller:~# openstack service create --name aodh --description "Telemetry" alarming
+
+root@controller:~# openstack endpoint create --region RegionOne alarming public http://192.168.56.101:8042
+
+root@controller:~# openstack endpoint create --region RegionOne alarming internal http://192.168.56.101:8042
+
+root@controller:~# openstack endpoint create --region RegionOne alarming admin http://192.168.56.101:8042
+
+root@controller:~# apt-get install aodh-api aodh-evaluator aodh-notifier aodh-listener aodh-expirer python-ceilometerclient
+
+root@controller:~# vi /etc/aodh/aodh.conf
+[DEFAULT]
+rpc_backend = rabbit
+auth_strategy = keystone
+
+[database]
+connection = mysql+pymysql://aodh:aodhdbpass@192.168.56.101/aodh
+
+[keystone_authtoken]
+auth_uri = http://192.168.56.101:5000
+auth_url = http://192.168.56.101:35357
+memcached_servers = 192.168.56.101:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = aodh
+password = aodhpass
+
+[oslo_messaging_rabbit]
+rabbit_host = 192.168.56.101
+rabbit_userid = openstack
+rabbit_password = rabbitpass
+
+[service_credentials]
+auth_type = password
+auth_url = http://192.168.56.101:5000/v3
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = aodh
+password = aodhpass
+interface = internalURL
+region_name = RegionOne
+
+-------------------------
+
+root@controller:~# cat /etc/aodh/api_paste.ini 
+
+root@controller:~# service aodh-api restart
+
+root@controller:~# service aodh-api status
+
+root@controller:~# service aodh-evaluator restart
+
+root@controller:~# service aodh-evaluator status
+
+root@controller:~# aodh-dbsync
+
+root@controller:~# service aodh-evaluator restart
+
+root@controller:~# service aodh-evaluator status
+
+root@controller:~# service aodh-notifier restart
+
+root@controller:~# service aodh-notifier status
+
+root@controller:~# service aodh-listener restart
+
+root@controller:~# service aodh-listener status
+
+
+
+<테스트>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc 
+
+root@controller:~# ceilometer meter-list
+
+root@controller:~# IMAGE_ID=$(glance image-list | grep 'cirros' | awk '{ print $2 }')
+
+root@controller:~# glance image-download $IMAGE_ID > /tmp/cirros.img
+
+root@controller:~# ceilometer meter-list
+
+root@controller:~# ceilometer statistics -m image.download -p 60
+
+root@controller:~# rm /tmp/cirros.img 
+
+
+
+<인스턴스 생성>
+
+<가상 네트워크 생성>
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# cat /etc/neutron/plugins/ml2/ml2_conf.ini
+
+root@controller:~# cat /etc/neutron/plugins/ml2/linuxbridge_agent.ini
+
+root@controller:~# cat /etc/network/interfaces
+
+root@controller:~# neutron net-create --shared --provider:physical_network provider --provider:network_type flat provider
+
+root@controller:~# cat /etc/resolv.conf 
+
+root@controller:~# ping 168.126.63.1
+
+root@controller:~# neutron subnet-create --name provider --allocation-pool start=192.168.0.101,end=192.168.0.250 --dns-nameserver 168.126.63.1 --gateway 192.168.0.1 provider 192.168.0.0/24
+
+root@controller:~# ifconfig
+
+root@controller:~# cat demorc 
+
+root@controller:~# . demorc
+
+root@controller:~# cat /etc/neutron/plugins/ml2/ml2_conf.ini 
+
+root@controller:~# neutron net-create selfservice
+
+root@controller:~# neutron subnet-create --name selfservice --dns-nameserver 168.126.63.1 --gateway 10.11.12.1 selfservice 10.11.12.0/24
+
+root@controller:~# ifconfig
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# neutron net-update provider --router:external
+
+root@controller:~# cat demorc 
+
+root@controller:~# . demorc
+
+root@controller:~# neutron router-create router
+
+root@controller:~# neutron router-interface-add router selfservice
+
+root@controller:~# neutron router-gateway-set router provider
+
+root@controller:~# cat adminrc 
+
+root@controller:~# . adminrc
+
+root@controller:~# ip netns
+
+root@controller:~# neutron router-port-list router
+
+
+
+<Flavor 생성>
+
+root@controller:~# openstack flavor create --id 0 --vcpus 1 --ram 64 --disk 1 m1.nano
+
+
+
+<Key pair 생성>
+
+root@controller:~# . demorc 
+
+root@controller:~# ssh-keygen -q -N ""
+Enter file in which to save the key (/root/.ssh/id_rsa): /root/.ssh/openstack
+
+root@controller:~# ll .ssh
+
+root@controller:~# openstack keypair create --public-key ~/.ssh/openstack.pub mykey
+
+root@controller:~# openstack keypair list
+
+
+
+<보안 그룹 룰 추가>
+
+root@controller:~# openstack security group rule create --proto icmp default
+
+root@controller:~# openstack security group rule create --proto tcp --dst-port 22 default
+
+
+
+<인스턴스 생성>
+
+root@controller:~# cat demorc 
+
+root@controller:~# . demorc 
+
+root@controller:~# openstack flavor list
+
+root@controller:~# openstack image list
+
+root@controller:~# openstack network list
+
+root@controller:~# openstack security group list
+
+root@controller:~# openstack server create --flavor m1.tiny --image cirros --nic net-id=ca5ecb80-4e83-4e2e-b385-6164715ae224 --security-group default --key-name mykey myfirstinstance
+
+root@controller:# openstack server list
+
+root@controller:~# openstack console url show myfirstinstance
+
+root@controller:~# ip netns exec qrouter-6d6f3145-b786-4f0c-90f3-2819c8f10d26 ping 10.11.12.4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
